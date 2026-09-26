@@ -65,56 +65,37 @@
           ];
 
           // --- STATE ---
-          const [appMode, setAppMode] = useState('lab'); // 'instrument' or 'lab'
           const [instrumentType, setInstrumentType] = useState('ammeter'); 
           const [selectedRangeIndex, setSelectedRangeIndex] = useState(1);
           
-          // Simulation Params (Lab Mode)
-          const [sourceVoltage, setSourceVoltage] = useState(12); 
-          const [resistance, setResistance] = useState(240); 
-          const [isOpenCircuit, setIsOpenCircuit] = useState(false);
-
           // Manual Value (Instrument Mode)
           const [manualValue, setManualValue] = useState(0);
 
           // Physics State
-          const ammeterPhysics = useRef({ pos: 0, vel: 0, target: 0 });
-          const voltmeterPhysics = useRef({ pos: 0, vel: 0, target: 0 });
-          const [ammeterPos, setAmmeterPos] = useState(0);
-          const [voltmeterPos, setVoltmeterPos] = useState(0);
-
-          // Calculation Logic
-          const realCurrent = useMemo(() => isOpenCircuit ? 0 : sourceVoltage / (resistance || 0.1), [sourceVoltage, resistance, isOpenCircuit]);
-          const realVoltage = useMemo(() => isOpenCircuit ? 0 : sourceVoltage, [sourceVoltage, isOpenCircuit]);
+          const needlePhysics = useRef({ pos: 0, vel: 0, target: 0 });
+          const [needlePos, setNeedlePos] = useState(0);
 
           const ranges = instrumentType === 'ammeter' ? AMMETER_RANGES : (instrumentType === 'voltmeter' ? VOLTMETER_RANGES : OHMMETER_RANGES);
           const currentRange = ranges[selectedRangeIndex];
 
           // Reset manual value when changing instrument or range
           useEffect(() => {
-            if (appMode === 'instrument') {
+            if (instrumentType === 'ohmmeter') {
+              setManualValue(currentRange.mid); // Default to mid scale
+            } else {
               setManualValue(0);
             }
-          }, [instrumentType, selectedRangeIndex, appMode]);
+          }, [instrumentType, selectedRangeIndex]);
 
           // Physics Loop
           useEffect(() => {
-            if (appMode === 'lab') {
-              ammeterPhysics.current.target = realCurrent / AMMETER_RANGES[selectedRangeIndex].max;
-              voltmeterPhysics.current.target = realVoltage / VOLTMETER_RANGES[selectedRangeIndex].max;
+            if (instrumentType === 'ohmmeter') {
+              const safeRes = Math.max(0, manualValue);
+              const fraction = currentRange.mid / (safeRes + currentRange.mid);
+              needlePhysics.current.target = fraction;
             } else {
-              // In instrument mode, the target depends on the manual slider
-              const targetValue = instrumentType === 'ohmmeter' 
-                ? currentRange.mid / (manualValue + currentRange.mid)
-                : manualValue / currentRange.max;
-              
-              if (instrumentType === 'ammeter') ammeterPhysics.current.target = targetValue;
-              if (instrumentType === 'voltmeter') voltmeterPhysics.current.target = targetValue;
-              if (instrumentType === 'ohmmeter') {
-                  // Both can use the same state for the big meter
-                  ammeterPhysics.current.target = targetValue;
-                  voltmeterPhysics.current.target = targetValue;
-              }
+              const targetValue = manualValue / currentRange.max;
+              needlePhysics.current.target = targetValue;
             }
 
             let animationFrameId;
@@ -125,52 +106,38 @@
               const tension = 160; 
               const friction = 10;
               
-              const aAcc = (ammeterPhysics.current.target - ammeterPhysics.current.pos) * tension - (ammeterPhysics.current.vel * friction);
-              ammeterPhysics.current.vel += aAcc * dt;
-              ammeterPhysics.current.pos += ammeterPhysics.current.vel * dt;
-              setAmmeterPos(ammeterPhysics.current.pos);
-              
-              const vAcc = (voltmeterPhysics.current.target - voltmeterPhysics.current.pos) * tension - (voltmeterPhysics.current.vel * friction);
-              voltmeterPhysics.current.vel += vAcc * dt;
-              voltmeterPhysics.current.pos += voltmeterPhysics.current.vel * dt;
-              setVoltmeterPos(voltmeterPhysics.current.pos);
+              const acc = (needlePhysics.current.target - needlePhysics.current.pos) * tension - (needlePhysics.current.vel * friction);
+              needlePhysics.current.vel += acc * dt;
+              needlePhysics.current.pos += needlePhysics.current.vel * dt;
+              setNeedlePos(needlePhysics.current.pos);
               
               animationFrameId = requestAnimationFrame(animate);
             };
             animationFrameId = requestAnimationFrame(animate);
             return () => cancelAnimationFrame(animationFrameId);
-          }, [realCurrent, realVoltage, manualValue, selectedRangeIndex, appMode, instrumentType, currentRange]);
+          }, [manualValue, selectedRangeIndex, instrumentType, currentRange]);
 
-          const activeNeedlePos = instrumentType === 'ammeter' ? ammeterPos : voltmeterPos;
+          const activeNeedlePos = needlePos;
           const isOverload = activeNeedlePos > 1.05;
           const themeColor = instrumentType === 'ammeter' ? 'blue' : instrumentType === 'voltmeter' ? 'orange' : 'green';
-          const glowOpacity = isOpenCircuit ? 0 : Math.min((sourceVoltage ** 2 / resistance) / 2, 1);
-          const flowDuration = realCurrent > 0 ? Math.max(0.2, 2 / (realCurrent * 10 + 0.1)) : 0;
-
-          // Mini Meter Component
-          const EmbeddedMeter = ({ x, y, radius, type, pos, color }) => {
-            const scaleColor = color === 'blue' ? '#2563eb' : '#f97316';
-            const needleRot = -50 + (Math.min(Math.max(pos, -0.05), 1.15) * 100);
-            return (
-              <g transform={`translate(${x}, ${y})`}>
-                <circle r={radius} fill="white" stroke={scaleColor} strokeWidth="3" />
-                <path d={`M ${-radius*0.7} ${radius*0.1} A ${radius*0.7} ${radius*0.7} 0 0 1 ${radius*0.7} ${radius*0.1}`} fill="none" stroke="#f1f5f9" strokeWidth={radius*0.15} />
-                <g transform={`rotate(${needleRot}, 0, ${radius*0.7})`}><line x1="0" y1={radius*0.7} x2="0" y2={-radius*0.1} stroke="#ef4444" strokeWidth="2" /></g>
-                <circle cy={radius*0.7} r={radius*0.15} fill="#1e293b" />
-                <text y={radius*0.45} textAnchor="middle" fontSize={radius*0.4} fontWeight="black" fill={scaleColor}>{type}</text>
-              </g>
-            );
-          };
 
           const renderTicks = () => {
             const ticks = [];
             const centerX = 300; const centerY = 320; const rBase = 220;
             if (instrumentType === 'ohmmeter') {
-              const marks = [{v:0,l:'0'}, {v:5,l:'5'}, {v:10,l:'10'}, {v:15,l:'15'}, {v:30,l:'30'}, {v:50,l:'50'}, {v:100,l:'100'}, {v:500,l:'500'}, {v:1000000,l:'∞'}];
-              const mid = 15;
+              const marks = [
+                {v: 1000000, l: '∞', f: 0.0},
+                {v: 500, l: '500', f: currentRange.mid / (500 + currentRange.mid)},
+                {v: 100, l: '100', f: currentRange.mid / (100 + currentRange.mid)},
+                {v: 50, l: '50', f: currentRange.mid / (50 + currentRange.mid)},
+                {v: 30, l: '30', f: currentRange.mid / (30 + currentRange.mid)},
+                {v: 15, l: '15', f: 0.5},
+                {v: 10, l: '10', f: currentRange.mid / (10 + currentRange.mid)},
+                {v: 5, l: '5', f: currentRange.mid / (5 + currentRange.mid)},
+                {v: 0, l: '0', f: 1.0}
+              ];
               marks.forEach((mark, i) => {
-                const fraction = mid / (mark.v + mid);
-                const angleDeg = -50 + (fraction * 100);
+                const angleDeg = -50 + (mark.f * 100);
                 const angleRad = (angleDeg * Math.PI) / 180;
                 ticks.push(<line key={`omark-${i}`} x1={centerX + rBase * Math.sin(angleRad)} y1={centerY - rBase * Math.cos(angleRad)} x2={centerX + (rBase + 15) * Math.sin(angleRad)} y2={centerY - (rBase + 15) * Math.cos(angleRad)} stroke="black" strokeWidth="2.5" />);
                 ticks.push(<text key={`otxt-${i}`} x={centerX + (rBase + 40) * Math.sin(angleRad)} y={centerY - (rBase + 40) * Math.cos(angleRad)} fill="black" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="middle">{mark.l}</text>);
@@ -192,140 +159,81 @@
           };
 
           return (
-            <div className="min-h-screen text-slate-800 p-4 md:p-8 font-sans flex flex-col items-center">
+            <div className="min-h-screen bg-slate-100 text-slate-800 p-4 md:p-8 font-sans flex flex-col items-center relative">
+              <style>{`
+                @keyframes flow { to { stroke-dashoffset: -30; } }
+                .wire-flow { stroke-dasharray: 6 12; animation: flow var(--speed, 1s) linear infinite; }
+              `}</style>
               
-              <header className="mb-6 text-center">
-                <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center justify-center gap-3">
-                  <Zap className="text-yellow-500 fill-yellow-500 w-8 h-8" /> VIRTUAL ELECTRICAL LAB
-                </h1>
-                
-                {/* TOP LEVEL MODE SWITCHER */}
-                <div className="mt-4 flex bg-white p-1 rounded-2xl shadow-md border border-slate-200 inline-flex">
-                  <button 
-                    onClick={() => setAppMode('instrument')}
-                    className={`px-6 py-2 rounded-xl font-bold transition-all flex items-center gap-2 ${appMode === 'instrument' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-                  >
-                    <Settings2 className="w-4 h-4" /> โหมดเครื่องวัด (Individual)
-                  </button>
-                  <button 
-                    onClick={() => setAppMode('lab')}
-                    className={`px-6 py-2 rounded-xl font-bold transition-all flex items-center gap-2 ${appMode === 'lab' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-                  >
-                    <Microscope className="w-4 h-4" /> โหมดห้องแล็บ (Circuit)
-                  </button>
+              {/* --- DEVELOPER BADGE TOP RIGHT --- */}
+              <div className="absolute top-4 right-4 md:top-6 md:right-8 flex items-center gap-3 bg-white px-4 py-2 rounded-2xl shadow-md border border-slate-200 z-10">
+                <img 
+                  src="https://github.com/metawat888/Picture/raw/69f9d3a46e017adc43abb8db3503ea8106ecae61/97488303_2887790847941184_353651305119481856_n.jpg" 
+                  alt="นายเมธาวัฒน์ พงสะพัง" 
+                  className="w-10 h-10 rounded-full object-cover border-2 border-indigo-500 shadow-sm"
+                  onError={(e) => { e.target.src = 'https://placehold.co/100x100/e2e8f0/475569?text=MP'; }}
+                />
+                <div className="hidden sm:block text-right">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">พัฒนาโดย</span>
+                  <span className="text-xs font-bold text-slate-800">นายเมธาวัฒน์ พงสะพัง</span>
                 </div>
+              </div>
+
+              <header className="mb-6 text-center mt-12 md:mt-0">
+                <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center justify-center gap-3">
+                  <Zap className="text-yellow-500 fill-yellow-500" /> VIRTUAL ELECTRICAL LAB
+                </h1>
+                <p className="text-sm text-slate-500 mt-1 font-medium">จำลองเครื่องวัดทางไฟฟ้าและฝึกอ่านสเกลหน้าปัด</p>
               </header>
 
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full max-w-7xl items-start">
                 
-                {/* --- LEFT SIDE: LAB VIEW or INSTRUMENT CONTROLS --- */}
+                {/* --- LEFT SIDE: INSTRUMENT CONTROLS --- */}
                 <div className="lg:col-span-6 flex flex-col gap-6">
-                  
-                  {appMode === 'lab' ? (
-                    /* LAB MODE: CIRCUIT DIAGRAM */
-                    <div className="bg-white rounded-[2rem] p-8 shadow-2xl border border-slate-200 relative">
-                      <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                         <Activity className="w-4 h-4 text-blue-500" /> Lab Environment
-                      </h3>
-
-                      <div className="aspect-[4/3] bg-slate-50 rounded-3xl border-2 border-slate-100 flex items-center justify-center relative overflow-hidden">
-                         <svg viewBox="0 0 400 300" className="w-full h-full">
-                            <path d="M 125 242.5 L 40 242.5 L 40 40 L 168 40 M 192 40 L 320 40 L 320 242.5 L 180 242.5" 
-                                  fill="none" stroke="#b91c1c" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
-                            {!isOpenCircuit && realCurrent > 0 && (
-                              <path d="M 125 242.5 L 40 242.5 L 40 40 L 168 40 M 192 40 L 320 40 L 320 242.5 L 180 242.5" 
-                                    fill="none" stroke="#fbbf24" strokeWidth="3" strokeLinecap="round" 
-                                    className="wire-flow" style={{ '--speed': `${flowDuration}s` }} />
-                            )}
-                            <g>
-                              <path d="M 120 40 L 120 100 L 150 100" fill="none" stroke="#475569" strokeWidth="2" strokeDasharray="4 2" />
-                              <path d="M 240 40 L 240 100 L 210 100" fill="none" stroke="#475569" strokeWidth="2" strokeDasharray="4 2" />
-                            </g>
-                            <g transform="translate(100, 220)">
-                              <rect width="80" height="45" fill="#1e293b" rx="4" />
-                              <rect width="25" height="45" fill="#f59e0b" rx="2" />
-                            </g>
-                            <EmbeddedMeter x={40} y={120} radius={32} type="A" pos={ammeterPos} color="blue" />
-                            <g transform="translate(180, 40)">
-                              <circle r={25 + glowOpacity * 25} fill="url(#bulbGlow)" opacity={glowOpacity} />
-                              <defs><radialGradient id="bulbGlow"><stop offset="0%" stopColor="#fbbf24" /><stop offset="100%" stopColor="#fbbf24" stopOpacity="0" /></radialGradient></defs>
-                              <path d="M -12 0 A 12 12 0 1 1 12 0 L 8 18 L -8 18 Z" fill="#f8fafc" stroke="#94a3b8" strokeWidth="2" />
-                            </g>
-                            <EmbeddedMeter x={180} y={100} radius={30} type="V" pos={voltmeterPos} color="orange" />
-                            <g transform="translate(260, 230)" className="cursor-pointer" onClick={() => setIsOpenCircuit(!isOpenCircuit)}>
-                              <rect width="60" height="25" fill="#334155" rx="4" />
-                              <g transform={`rotate(${isOpenCircuit ? -40 : 0}, 10, 12.5)`} className="transition-transform duration-300">
-                                 <rect x="0" y="8.5" width="50" height="8" fill="#d97706" rx="2" /><circle cx="10" cy="12.5" r="5" fill="#0f172a" />
-                              </g>
-                              <circle cx="50" cy="12.5" r="5" fill="#0f172a" />
-                            </g>
-                         </svg>
-                      </div>
-
-                      <div className="mt-8 grid grid-cols-2 gap-6 bg-slate-50 p-6 rounded-3xl border border-slate-100">
-                         <div>
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Voltage Source</label>
-                            <input type="range" min="0" max="30" step="0.5" value={sourceVoltage} 
-                                   onChange={(e) => setSourceVoltage(parseFloat(e.target.value))}
-                                   className="w-full accent-yellow-500 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer" />
-                            <div className="mt-2 font-mono font-bold text-slate-700 text-sm">{sourceVoltage.toFixed(1)} V</div>
-                         </div>
-                         <div>
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Bulb Resistance</label>
-                            <input type="range" min="20" max="1000" step="10" value={resistance} 
-                                   onChange={(e) => setResistance(parseFloat(e.target.value))}
-                                   className="w-full accent-blue-500 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer" />
-                            <div className="mt-2 font-mono font-bold text-slate-700 text-sm">{resistance} Ω</div>
-                         </div>
-                      </div>
-                    </div>
-                  ) : (
-                    /* INSTRUMENT MODE: MANUAL CONTROLS */
-                    <div className="bg-white rounded-[2rem] p-8 shadow-2xl border border-slate-200">
-                       <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                         <Settings2 className="w-4 h-4 text-slate-600" /> Instrument Config
-                       </h3>
-                       
-                       <div className="space-y-8">
-                          <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                            <label className="text-xs font-black text-slate-500 uppercase block mb-4">ปรับค่าที่ต้องการวัด (Direct Setting)</label>
-                            <div className="flex items-center gap-6">
-                              <input 
-                                type="range" 
-                                min="0" 
-                                max={instrumentType === 'ohmmeter' ? 2000 * currentRange.multiplier : currentRange.max * 1.1} 
-                                step={currentRange.step || 1}
-                                value={manualValue}
-                                onChange={(e) => setManualValue(parseFloat(e.target.value))}
-                                className={`flex-1 h-2 rounded-lg appearance-none cursor-pointer ${
-                                  instrumentType === 'ammeter' ? 'accent-blue-600' : instrumentType === 'voltmeter' ? 'accent-orange-500' : 'accent-green-600'
-                                } bg-slate-200`}
-                              />
-                              <div className="w-24 text-right font-mono font-black text-xl text-slate-800">
-                                {instrumentType === 'ohmmeter' && manualValue > 100000 ? '∞' : manualValue.toFixed(manualValue < 1 ? 3 : 1)}
-                              </div>
+                  <div className="bg-white rounded-[2rem] p-8 shadow-2xl border border-slate-200">
+                     <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                       <Settings2 className="w-4 h-4 text-slate-600" /> Instrument Config
+                     </h3>
+                     
+                     <div className="space-y-8">
+                        <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                          <label className="text-xs font-black text-slate-500 uppercase block mb-4">ปรับค่าที่ต้องการวัด (Direct Setting)</label>
+                          <div className="flex items-center gap-6">
+                            <input 
+                              type="range" 
+                              min="0" 
+                              max={instrumentType === 'ohmmeter' ? currentRange.mid * 20 : currentRange.max * 1.1} 
+                              step={instrumentType === 'ohmmeter' ? 10 : (currentRange.step || 1)}
+                              value={manualValue}
+                              onChange={(e) => setManualValue(parseFloat(e.target.value))}
+                              className={`flex-1 h-2 rounded-lg appearance-none cursor-pointer ${
+                                instrumentType === 'ammeter' ? 'accent-blue-600' : instrumentType === 'voltmeter' ? 'accent-orange-500' : 'accent-green-600'
+                              } bg-slate-200`}
+                            />
+                            <div className="w-28 text-right font-mono font-black text-xl text-slate-800">
+                              {instrumentType === 'ohmmeter' ? (manualValue > currentRange.mid * 15 ? '∞ Ω' : manualValue.toFixed(0) + ' Ω') : manualValue.toFixed(manualValue < 1 ? 3 : 1)}
                             </div>
-                            <p className="mt-4 text-xs text-slate-400 italic">
-                              * ในโหมดเครื่องวัด คุณสามารถปรับค่าเพื่อฝึกอ่านขีดสเกลบนหน้าปัดได้โดยตรง
-                            </p>
                           </div>
+                          <p className="mt-4 text-xs text-slate-400 italic">
+                            * ปรับค่าเพื่อฝึกอ่านขีดสเกลบนหน้าปัดได้ตามต้องการ
+                          </p>
+                        </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
-                                <span className="text-[10px] font-bold text-blue-400 uppercase">Selected Unit</span>
-                                <p className="text-lg font-black text-blue-700">{currentRange.unit || (instrumentType === 'ohmmeter' ? 'Ω' : '')}</p>
-                             </div>
-                             <div className="p-4 bg-slate-800 rounded-xl text-white">
-                                <span className="text-[10px] font-bold text-slate-500 uppercase">Scale Resolution</span>
-                                <p className="text-lg font-black">{currentRange.max ? (currentRange.max / 50).toFixed(4) : 'Log Scale'}</p>
-                             </div>
-                          </div>
-                       </div>
-                    </div>
-                  )}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                           <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                              <span className="text-[10px] font-bold text-blue-400 uppercase">Selected Unit / Multiplier</span>
+                              <p className="text-lg font-black text-blue-700">{currentRange.unit || currentRange.label}</p>
+                           </div>
+                           <div className="p-4 bg-slate-800 rounded-xl text-white">
+                              <span className="text-[10px] font-bold text-slate-500 uppercase">Scale Type</span>
+                              <p className="text-lg font-black">{instrumentType === 'ohmmeter' ? 'Non-linear (Reversed)' : 'Linear Scale'}</p>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
                 </div>
 
-                {/* --- RIGHT SIDE: MAIN METER (Used in both modes) --- */}
+                {/* --- RIGHT SIDE: MAIN METER --- */}
                 <div className="lg:col-span-6 flex flex-col items-center">
                   
                   <div className="mb-6 flex bg-white p-1.5 rounded-2xl shadow-xl border border-slate-200 w-full max-w-sm">
@@ -349,7 +257,7 @@
                           <text y="0" fontSize="36" className="font-black" fill={
                             themeColor === 'blue' ? '#2563eb' : themeColor === 'orange' ? '#f97316' : '#16a34a'
                           }>{instrumentType === 'ammeter' ? 'A' : instrumentType === 'voltmeter' ? 'V' : 'Ω'}</text>
-                          <text y="28" fontSize="12" fill="#94a3b8" className="font-bold tracking-widest uppercase">{appMode === 'lab' ? 'Lab Reading' : 'Practice Scale'}</text>
+                          <text y="28" fontSize="12" fill="#94a3b8" className="font-bold tracking-widest uppercase">Practice Scale</text>
                         </g>
                         <circle cx="300" cy="320" r="18" fill="#1e293b" />
                         <g transform={`rotate(${-50 + (Math.min(Math.max(activeNeedlePos, -0.05), 1.15) * 100)}, 300, 320)`}>
@@ -377,18 +285,21 @@
 
                   <div className="mt-6 grid grid-cols-2 gap-4 w-full">
                     <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 text-center">
-                      <p className="text-[10px] font-black text-slate-400 uppercase">Current Reading</p>
+                      <p className="text-[10px] font-black text-slate-400 uppercase">Current / Resistance Reading</p>
                       <p className="text-xl font-mono font-black text-blue-600">
-                        {(appMode === 'lab' ? realCurrent : (instrumentType === 'ammeter' ? manualValue : 0) ) * 1000 >= 1000 
-                         ? ((appMode === 'lab' ? realCurrent : (instrumentType === 'ammeter' ? manualValue : 0))).toFixed(2) + ' A'
-                         : ((appMode === 'lab' ? realCurrent : (instrumentType === 'ammeter' ? manualValue : 0)) * 1000).toFixed(1) + ' mA'
+                        {instrumentType === 'ohmmeter' 
+                         ? (manualValue > currentRange.mid * 15 ? '∞ Ω' : (manualValue * currentRange.multiplier).toLocaleString() + ' Ω')
+                         : ((instrumentType === 'ammeter' ? manualValue : 0) * 1000 >= 1000 
+                             ? (instrumentType === 'ammeter' ? manualValue : 0).toFixed(2) + ' A'
+                             : ((instrumentType === 'ammeter' ? manualValue : 0) * 1000).toFixed(1) + ' mA'
+                           )
                         }
                       </p>
                     </div>
                     <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 text-center">
                       <p className="text-[10px] font-black text-slate-400 uppercase">Voltage Reading</p>
                       <p className="text-xl font-mono font-black text-orange-600">
-                        {(appMode === 'lab' ? realVoltage : (instrumentType === 'voltmeter' ? manualValue : 0)).toFixed(1)} <span className="text-xs">V</span>
+                        {(instrumentType === 'voltmeter' ? manualValue : 0).toFixed(1)} <span className="text-xs">V</span>
                       </p>
                     </div>
                   </div>
@@ -398,7 +309,6 @@
           );
         };
 
-        // Render the application
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<ElectricalLabSimulation />);
     </script>
