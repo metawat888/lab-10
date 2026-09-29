@@ -16,14 +16,13 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
-        /* Custom animations extracted from component */
         @keyframes flow { to { stroke-dashoffset: -30; } }
         .wire-flow { 
             stroke-dasharray: 6 12; 
             animation: flow var(--speed, 1s) linear infinite; 
         }
         body {
-            background-color: #f1f5f9; /* slate-100 */
+            background-color: #e2e8f0;
         }
     </style>
 </head>
@@ -31,18 +30,16 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef, useMemo } = React;
+        const { useState, useEffect, useRef } = React;
 
-        // --- INLINE ICONS (Replacing lucide-react for standalone usage) ---
+        // --- INLINE ICONS ---
         const Zap = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>;
         const Activity = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>;
         const Gauge = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 14 4-4"/><path d="M3.34 16A10 10 0 1 1 20.66 16"/></svg>;
         const Box = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>;
-        const Microscope = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 18h8"/><path d="M3 22h18"/><path d="M14 22a7 7 0 1 0 0-14h-1"/><path d="M9 14h2"/><path d="M9 12a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2Z"/><path d="M12 6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3"/></svg>;
         const Settings2 = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="7" r="3"/><circle cx="7" cy="17" r="3"/></svg>;
 
         const ElectricalLabSimulation = () => {
-          // --- CONFIGURATION ---
           const AMMETER_RANGES = [
             { label: '2 mA', max: 0.002, unit: 'mA', displayMult: 1000, step: 0.0001 },
             { label: '100 mA', max: 0.1, unit: 'mA', displayMult: 1000, step: 0.001 },
@@ -64,30 +61,24 @@
             { label: 'x 1k', multiplier: 1000, mid: 15000 }
           ];
 
-          // --- STATE ---
           const [instrumentType, setInstrumentType] = useState('ammeter'); 
           const [selectedRangeIndex, setSelectedRangeIndex] = useState(1);
-          
-          // Manual Value (Instrument Mode)
           const [manualValue, setManualValue] = useState(0);
 
-          // Physics State
           const needlePhysics = useRef({ pos: 0, vel: 0, target: 0 });
           const [needlePos, setNeedlePos] = useState(0);
 
           const ranges = instrumentType === 'ammeter' ? AMMETER_RANGES : (instrumentType === 'voltmeter' ? VOLTMETER_RANGES : OHMMETER_RANGES);
           const currentRange = ranges[selectedRangeIndex];
 
-          // Reset manual value when changing instrument or range
           useEffect(() => {
             if (instrumentType === 'ohmmeter') {
-              setManualValue(currentRange.mid); // Default to mid scale
+              setManualValue(currentRange.mid);
             } else {
               setManualValue(0);
             }
           }, [instrumentType, selectedRangeIndex]);
 
-          // Physics Loop
           useEffect(() => {
             if (instrumentType === 'ohmmeter') {
               const safeRes = Math.max(0, manualValue);
@@ -124,6 +115,23 @@
           const renderTicks = () => {
             const ticks = [];
             const centerX = 300; const centerY = 320; const rBase = 220;
+            
+            const screws = [ [60,60], [540,60], [60,340], [540,340] ];
+            screws.forEach((pos, i) => {
+              ticks.push(<circle key={`screw-${i}`} cx={pos[0]} cy={pos[1]} r="7" fill="url(#metal-grad)" stroke="#94a3b8" strokeWidth="1" />);
+              ticks.push(<line key={`screw-l-${i}`} x1={pos[0]-4} y1={pos[1]-4} x2={pos[0]+4} y2={pos[1]+4} stroke="#475569" strokeWidth="1.5" />);
+            });
+
+            ticks.push(
+               <path key="mirror" d="M 120 200 A 220 220 0 0 1 480 200" fill="none" stroke="#e2e8f0" strokeWidth="35" />
+            );
+            ticks.push(
+               <path key="mirror-inner" d="M 120 200 A 220 220 0 0 1 480 200" fill="none" stroke="#cbd5e1" strokeWidth="33" />
+            );
+            ticks.push(
+               <path key="track" d="M 100 200 A 240 240 0 0 1 500 200" fill="none" stroke="#1e293b" strokeWidth="3" />
+            );
+
             if (instrumentType === 'ohmmeter') {
               const marks = [
                 {v: 1000000, l: '∞', f: 0.0},
@@ -139,19 +147,27 @@
               marks.forEach((mark, i) => {
                 const angleDeg = -50 + (mark.f * 100);
                 const angleRad = (angleDeg * Math.PI) / 180;
-                ticks.push(<line key={`omark-${i}`} x1={centerX + rBase * Math.sin(angleRad)} y1={centerY - rBase * Math.cos(angleRad)} x2={centerX + (rBase + 15) * Math.sin(angleRad)} y2={centerY - (rBase + 15) * Math.cos(angleRad)} stroke="black" strokeWidth="2.5" />);
-                ticks.push(<text key={`otxt-${i}`} x={centerX + (rBase + 40) * Math.sin(angleRad)} y={centerY - (rBase + 40) * Math.cos(angleRad)} fill="black" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="middle">{mark.l}</text>);
+                ticks.push(<line key={`omark-${i}`} x1={centerX + rBase * Math.sin(angleRad)} y1={centerY - rBase * Math.cos(angleRad)} x2={centerX + (rBase + 15) * Math.sin(angleRad)} y2={centerY - (rBase + 15) * Math.cos(angleRad)} stroke="#0f172a" strokeWidth="2.5" />);
+                ticks.push(<text key={`otxt-${i}`} x={centerX + (rBase + 35) * Math.sin(angleRad)} y={centerY - (rBase + 35) * Math.cos(angleRad)} fill="#0f172a" fontSize="16" fontWeight="900" textAnchor="middle" dominantBaseline="middle" fontFamily="sans-serif">{mark.l}</text>);
               });
+              for (let i = 1; i <= 20; i++) {
+                 const f = i / 20;
+                 const angleDeg = -50 + (f * 100);
+                 const angleRad = (angleDeg * Math.PI) / 180;
+                 ticks.push(<line key={`osub-${i}`} x1={centerX + rBase * Math.sin(angleRad)} y1={centerY - rBase * Math.cos(angleRad)} x2={centerX + (rBase + 6) * Math.sin(angleRad)} y2={centerY - (rBase + 6) * Math.cos(angleRad)} stroke="#475569" strokeWidth="1" />);
+              }
             } else {
               for (let i = 0; i <= 50; i++) {
                 const fraction = i / 50;
                 const angleDeg = -50 + (fraction * 100);
                 const angleRad = (angleDeg * Math.PI) / 180;
                 const isMain = i % 10 === 0;
-                ticks.push(<line key={`tick-${i}`} x1={centerX + rBase * Math.sin(angleRad)} y1={centerY - rBase * Math.cos(angleRad)} x2={centerX + (rBase + (isMain ? 18 : 8)) * Math.sin(angleRad)} y2={centerY - (rBase + (isMain ? 18 : 8)) * Math.cos(angleRad)} stroke="black" strokeWidth={isMain ? "2.5" : "1"} />);
+                const isMid = i % 5 === 0 && !isMain;
+                const lineLen = isMain ? 18 : (isMid ? 12 : 7);
+                ticks.push(<line key={`tick-${i}`} x1={centerX + rBase * Math.sin(angleRad)} y1={centerY - rBase * Math.cos(angleRad)} x2={centerX + (rBase + lineLen) * Math.sin(angleRad)} y2={centerY - (rBase + lineLen) * Math.cos(angleRad)} stroke="#0f172a" strokeWidth={isMain ? "2.5" : (isMid ? "1.5" : "1")} />);
                 if (isMain) {
                   const val = (fraction * currentRange.max * (currentRange.displayMult || 1));
-                  ticks.push(<text key={`txt-${i}`} x={centerX + (rBase + 45) * Math.sin(angleRad)} y={centerY - (rBase + 45) * Math.cos(angleRad)} fill="black" fontSize="16" fontWeight="bold" textAnchor="middle" dominantBaseline="middle">{val >= 10 ? Math.round(val) : val.toFixed(1)}</text>);
+                  ticks.push(<text key={`txt-${i}`} x={centerX + (rBase + 35) * Math.sin(angleRad)} y={centerY - (rBase + 35) * Math.cos(angleRad)} fill="#0f172a" fontSize="16" fontWeight="900" textAnchor="middle" dominantBaseline="middle" fontFamily="sans-serif">{val >= 10 ? Math.round(val) : val.toFixed(1)}</text>);
                 }
               }
             }
@@ -159,151 +175,153 @@
           };
 
           return (
-            <div className="min-h-screen bg-slate-100 text-slate-800 p-4 md:p-8 font-sans flex flex-col items-center relative">
-              <style>{`
-                @keyframes flow { to { stroke-dashoffset: -30; } }
-                .wire-flow { stroke-dasharray: 6 12; animation: flow var(--speed, 1s) linear infinite; }
-              `}</style>
+            <div className="min-h-screen bg-[#e2e8f0] text-slate-800 p-4 md:p-6 font-sans flex flex-col items-center relative" 
+                 style={{ backgroundImage: 'radial-gradient(#cbd5e1 1px, transparent 1px)', backgroundSize: '24px 24px' }}>
               
-              {/* --- DEVELOPER BADGE TOP RIGHT --- */}
-              <div className="absolute top-4 right-4 md:top-6 md:right-8 flex items-center gap-3 bg-white px-4 py-2 rounded-2xl shadow-md border border-slate-200 z-10">
-                <img 
-                  src="https://github.com/metawat888/Picture/raw/69f9d3a46e017adc43abb8db3503ea8106ecae61/97488303_2887790847941184_353651305119481856_n.jpg" 
-                  alt="นายเมธาวัฒน์ พงสะพัง" 
-                  className="w-10 h-10 rounded-full object-cover border-2 border-indigo-500 shadow-sm"
-                  onError={(e) => { e.target.src = 'https://placehold.co/100x100/e2e8f0/475569?text=MP'; }}
-                />
-                <div className="hidden sm:block text-right">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">พัฒนาโดย</span>
-                  <span className="text-xs font-bold text-slate-800">นายเมธาวัฒน์ พงสะพัง</span>
+              {}
+              <header className="w-full max-w-2xl mx-auto mb-4 flex items-center justify-between bg-white/80 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-sm border border-white/50">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-gradient-to-br from-yellow-400 to-amber-600 rounded-xl shadow-md border border-yellow-200">
+                     <Zap className="text-white fill-white w-5 h-5" />
+                  </div>
+                  <h1 className="text-lg md:text-xl font-black text-slate-900 tracking-tight">VIRTUAL ELECTRICAL LAB</h1>
                 </div>
-              </div>
 
-              <header className="mb-6 text-center mt-12 md:mt-0">
-                <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center justify-center gap-3">
-                  <Zap className="text-yellow-500 fill-yellow-500" /> VIRTUAL ELECTRICAL LAB
-                </h1>
-                <p className="text-sm text-slate-500 mt-1 font-medium">จำลองเครื่องวัดทางไฟฟ้าและฝึกอ่านสเกลหน้าปัด</p>
+                <div className="flex items-center gap-2.5">
+                  <div className="text-right hidden sm:block">
+                    <span className="text-[8px] font-black text-indigo-500 uppercase tracking-widest block">พัฒนาโดย</span>
+                    <span className="text-xs font-bold text-slate-800">นายเมธาวัฒน์ พงสะพัง</span>
+                  </div>
+                  <img 
+                    src="https://github.com/metawat888/Picture/raw/69f9d3a46e017adc43abb8db3503ea8106ecae61/97488303_2887790847941184_353651305119481856_n.jpg" 
+                    alt="นายเมธาวัฒน์ พงสะพัง" 
+                    className="w-9 h-9 rounded-full object-cover border-2 border-indigo-500 shadow-sm"
+                    onError={(e) => { e.target.src = 'https://placehold.co/100x100/e2e8f0/475569?text=MP'; }}
+                  />
+                </div>
               </header>
 
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full max-w-7xl items-start">
+              {}
+              <div className="flex flex-col items-center w-full max-w-xl mx-auto gap-2">
                 
-                {/* --- LEFT SIDE: INSTRUMENT CONTROLS --- */}
-                <div className="lg:col-span-6 flex flex-col gap-6">
-                  <div className="bg-white rounded-[2rem] p-8 shadow-2xl border border-slate-200">
-                     <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                       <Settings2 className="w-4 h-4 text-slate-600" /> Instrument Config
-                     </h3>
-                     
-                     <div className="space-y-8">
-                        <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                          <label className="text-xs font-black text-slate-500 uppercase block mb-4">ปรับค่าที่ต้องการวัด (Direct Setting)</label>
-                          <div className="flex items-center gap-6">
-                            <input 
-                              type="range" 
-                              min="0" 
-                              max={instrumentType === 'ohmmeter' ? currentRange.mid * 20 : currentRange.max * 1.1} 
-                              step={instrumentType === 'ohmmeter' ? 10 : (currentRange.step || 1)}
-                              value={manualValue}
-                              onChange={(e) => setManualValue(parseFloat(e.target.value))}
-                              className={`flex-1 h-2 rounded-lg appearance-none cursor-pointer ${
-                                instrumentType === 'ammeter' ? 'accent-blue-600' : instrumentType === 'voltmeter' ? 'accent-orange-500' : 'accent-green-600'
-                              } bg-slate-200`}
-                            />
-                            <div className="w-28 text-right font-mono font-black text-xl text-slate-800">
-                              {instrumentType === 'ohmmeter' ? (manualValue > currentRange.mid * 15 ? '∞ Ω' : manualValue.toFixed(0) + ' Ω') : manualValue.toFixed(manualValue < 1 ? 3 : 1)}
-                            </div>
-                          </div>
-                          <p className="mt-4 text-xs text-slate-400 italic">
-                            * ปรับค่าเพื่อฝึกอ่านขีดสเกลบนหน้าปัดได้ตามต้องการ
-                          </p>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                           <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
-                              <span className="text-[10px] font-bold text-blue-400 uppercase">Selected Unit / Multiplier</span>
-                              <p className="text-lg font-black text-blue-700">{currentRange.unit || currentRange.label}</p>
-                           </div>
-                           <div className="p-4 bg-slate-800 rounded-xl text-white">
-                              <span className="text-[10px] font-bold text-slate-500 uppercase">Scale Type</span>
-                              <p className="text-lg font-black">{instrumentType === 'ohmmeter' ? 'Non-linear (Reversed)' : 'Linear Scale'}</p>
-                           </div>
-                        </div>
-                     </div>
-                  </div>
+                <div className="mb-2 flex bg-slate-200/50 backdrop-blur p-1 rounded-xl shadow-inner border border-white/50 w-full">
+                  {['ammeter', 'voltmeter', 'ohmmeter'].map((id) => (
+                    <button key={id} onClick={() => {setInstrumentType(id); setSelectedRangeIndex(1);}}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg font-bold transition-all duration-300 text-xs capitalize ${
+                        instrumentType === id 
+                          ? (id === 'ammeter' ? 'bg-gradient-to-b from-blue-500 to-blue-700' : id === 'voltmeter' ? 'bg-gradient-to-b from-orange-400 to-orange-600' : 'bg-gradient-to-b from-green-500 to-green-700') + ' text-white shadow-md scale-[1.02] border border-white/20' 
+                          : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
+                      }`}
+                    >
+                      {id === 'ammeter' ? <Activity className="w-3.5 h-3.5" /> : id === 'voltmeter' ? <Gauge className="w-3.5 h-3.5" /> : <Box className="w-3.5 h-3.5" />} {id}
+                    </button>
+                  ))}
                 </div>
 
-                {/* --- RIGHT SIDE: MAIN METER --- */}
-                <div className="lg:col-span-6 flex flex-col items-center">
+                <div className="relative rounded-[2.5rem] p-3 bg-gradient-to-b from-slate-300 to-slate-400 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.3),inset_0_2px_5px_rgba(255,255,255,0.8),inset_0_-4px_5px_rgba(0,0,0,0.2)] border border-slate-300 w-full flex flex-col">
                   
-                  <div className="mb-6 flex bg-white p-1.5 rounded-2xl shadow-xl border border-slate-200 w-full max-w-sm">
-                    {['ammeter', 'voltmeter', 'ohmmeter'].map((id) => (
-                      <button key={id} onClick={() => {setInstrumentType(id); setSelectedRangeIndex(1);}}
-                        className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all text-sm capitalize ${
-                          instrumentType === id ? (id === 'ammeter' ? 'bg-blue-600' : id === 'voltmeter' ? 'bg-orange-500' : 'bg-green-600') + ' text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'
-                        }`}
-                      >
-                        {id === 'ammeter' ? <Activity className="w-4 h-4" /> : id === 'voltmeter' ? <Gauge className="w-4 h-4" /> : <Box className="w-4 h-4" />} {id}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="relative bg-[#f1f5f9] rounded-[3rem] shadow-2xl border-[12px] border-slate-400 w-full aspect-[1.1/1] flex flex-col items-center p-8">
-                    <div className="relative w-full h-[65%] bg-white rounded-3xl border-4 border-slate-300 shadow-inner flex justify-center overflow-hidden">
-                      <svg viewBox="0 0 600 400" className="w-full h-full p-4">
-                        <path d="M 120 200 A 220 220 0 0 1 480 200" fill="none" stroke="#f1f5f9" strokeWidth="25" />
+                  <div className="relative flex-1 bg-gradient-to-br from-slate-800 to-slate-900 rounded-[2rem] p-4 shadow-[inset_0_10px_20px_rgba(0,0,0,0.7)] flex flex-col gap-3">
+                    
+                    {/* Dial Screen */}
+                    <div className="relative w-full h-56 sm:h-64 bg-gradient-to-b from-[#ffffff] to-[#f0f4f8] rounded-2xl overflow-hidden shadow-[inset_0_0_20px_rgba(0,0,0,0.15)] border-2 border-slate-700">
+                      
+                      <svg viewBox="0 0 600 400" className="w-full h-full p-2">
+                        <defs>
+                          <radialGradient id="metal-grad" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%" stopColor="#f8fafc" />
+                            <stop offset="80%" stopColor="#94a3b8" />
+                            <stop offset="100%" stopColor="#334155" />
+                          </radialGradient>
+                        </defs>
+                        
                         {renderTicks()}
+                        
                         <g transform="translate(300, 260)" textAnchor="middle">
-                          <text y="0" fontSize="36" className="font-black" fill={
-                            themeColor === 'blue' ? '#2563eb' : themeColor === 'orange' ? '#f97316' : '#16a34a'
+                          <text y="-20" fontSize="16" fill="#64748b" className="font-bold tracking-widest uppercase font-sans">Class 1.5</text>
+                          <text y="10" fontSize="42" className="font-black font-serif" fill={
+                            themeColor === 'blue' ? '#1d4ed8' : themeColor === 'orange' ? '#c2410c' : '#15803d'
                           }>{instrumentType === 'ammeter' ? 'A' : instrumentType === 'voltmeter' ? 'V' : 'Ω'}</text>
-                          <text y="28" fontSize="12" fill="#94a3b8" className="font-bold tracking-widest uppercase">Practice Scale</text>
+                          <text y="35" fontSize="12" fill="#94a3b8" className="font-bold tracking-[0.3em] uppercase font-sans">Precision Instrument</text>
                         </g>
-                        <circle cx="300" cy="320" r="18" fill="#1e293b" />
+                        
                         <g transform={`rotate(${-50 + (Math.min(Math.max(activeNeedlePos, -0.05), 1.15) * 100)}, 300, 320)`}>
-                          <line x1="300" y1="330" x2="300" y2="55" stroke={isOverload ? "#ef4444" : "#1e293b"} strokeWidth="3" strokeLinecap="round" />
+                          <polygon points="296,330 304,330 301,45 299,45" fill="rgba(0,0,0,0.25)" transform="translate(6, 12)" filter="blur(3px)" />
+                          <path d="M 292 320 L 308 320 L 304 350 L 296 350 Z" fill="#1e293b" />
+                          <polygon points="295,320 305,320 301,45 299,45" fill={isOverload ? "#ef4444" : "#f03e3e"} />
+                          <polygon points="299,320 301,320 300.5,45 299.5,45" fill="rgba(255,255,255,0.4)" />
                         </g>
+                        
+                        <circle cx="300" cy="320" r="22" fill="url(#metal-grad)" stroke="#475569" strokeWidth="2" filter="drop-shadow(0 4px 6px rgba(0,0,0,0.3))" />
+                        <circle cx="300" cy="320" r="10" fill="#0f172a" />
+                        <circle cx="296" cy="316" r="3" fill="rgba(255,255,255,0.4)" />
                       </svg>
+
+                      <div className="absolute inset-0 pointer-events-none rounded-2xl" style={{
+                          background: 'linear-gradient(110deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.05) 30%, rgba(255,255,255,0) 60%)',
+                          boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.8), inset 0 -1px 2px rgba(0,0,0,0.3)'
+                      }}></div>
                     </div>
 
-                    <div className="w-full flex-1 mt-8 flex flex-col justify-end px-8 pb-4">
-                       <div className="flex justify-between items-end">
-                          <div className="w-10 h-10 rounded-full bg-slate-900 border-b-4 border-black"></div>
-                          <div className="flex gap-4">
+                    {}
+                    <div className="w-full flex flex-row gap-3">
+                      <div className="flex-[1.2] bg-slate-800/50 rounded-xl p-2.5 border border-slate-700/50 flex flex-col shadow-inner justify-center">
+                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 text-center">Range Selector</p>
+                         <div className="flex gap-1.5 h-9">
                             {ranges.map((range, idx) => (
-                              <div key={idx} className="flex flex-col items-center cursor-pointer" onClick={() => setSelectedRangeIndex(idx)}>
-                                <div className={`w-8 h-8 rounded-full border-b-4 shadow-xl transition-all ${
-                                  selectedRangeIndex === idx ? 'bg-red-500 border-red-800 -translate-y-2' : 'bg-red-900 border-black opacity-40'
+                              <button
+                                 key={idx}
+                                 onClick={() => setSelectedRangeIndex(idx)}
+                                 className={`relative flex-1 flex flex-col items-center justify-center rounded-lg transition-all duration-300 border ${
+                                   selectedRangeIndex === idx 
+                                   ? `bg-slate-900 shadow-[inset_0_2px_8px_rgba(0,0,0,0.8)] translate-y-0.5 ${themeColor === 'blue' ? 'border-blue-500/50' : themeColor === 'orange' ? 'border-orange-500/50' : 'border-green-500/50'}`
+                                   : 'bg-gradient-to-b from-slate-600 to-slate-700 border-slate-500 shadow-[0_3px_5px_rgba(0,0,0,0.3),_0_2px_0_#334155] -translate-y-0.5 hover:-translate-y-0'
+                                 }`}
+                              >
+                                <div className={`w-2.5 h-1 mb-0.5 rounded-full ${
+                                  selectedRangeIndex === idx 
+                                    ? (themeColor === 'blue' ? 'bg-blue-400 shadow-[0_0_8px_#60a5fa]' : themeColor === 'orange' ? 'bg-orange-400 shadow-[0_0_8px_#fb923c]' : 'bg-green-400 shadow-[0_0_8px_#4ade80]') 
+                                    : 'bg-slate-800 shadow-inner'
                                 }`}></div>
-                                <span className={`mt-2 text-[9px] font-black ${selectedRangeIndex === idx ? 'text-red-600' : 'text-slate-400'}`}>{range.label}</span>
-                              </div>
+                                 <span className={`text-[9px] font-black ${selectedRangeIndex === idx ? 'text-white' : 'text-slate-300'}`}>{range.label}</span>
+                              </button>
                             ))}
-                          </div>
-                       </div>
-                    </div>
-                  </div>
+                         </div>
+                      </div>
 
-                  <div className="mt-6 grid grid-cols-2 gap-4 w-full">
-                    <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 text-center">
-                      <p className="text-[10px] font-black text-slate-400 uppercase">Current / Resistance Reading</p>
-                      <p className="text-xl font-mono font-black text-blue-600">
-                        {instrumentType === 'ohmmeter' 
-                         ? (manualValue > currentRange.mid * 15 ? '∞ Ω' : (manualValue * currentRange.multiplier).toLocaleString() + ' Ω')
-                         : ((instrumentType === 'ammeter' ? manualValue : 0) * 1000 >= 1000 
-                             ? (instrumentType === 'ammeter' ? manualValue : 0).toFixed(2) + ' A'
-                             : ((instrumentType === 'ammeter' ? manualValue : 0) * 1000).toFixed(1) + ' mA'
-                           )
-                        }
-                      </p>
+                      <div className="flex-1 bg-[#0a0a0a] rounded-xl p-2.5 border-2 border-slate-700 shadow-[inset_0_4px_20px_rgba(0,0,0,0.8)] flex flex-col justify-center items-center relative overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none"></div>
+                        <span className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Digital Readout</span>
+                        <span className="font-mono text-xl sm:text-2xl font-black tracking-wider flex items-baseline gap-1 mt-0.5" 
+                              style={{ 
+                                color: themeColor === 'blue' ? '#60a5fa' : themeColor === 'orange' ? '#fb923c' : '#4ade80',
+                                textShadow: `0 0 10px ${themeColor === 'blue' ? '#3b82f688' : themeColor === 'orange' ? '#ea580c88' : '#16a34a88'}`
+                              }}>
+                          {instrumentType === 'ohmmeter' ? (manualValue > currentRange.mid * 15 ? 'O.L' : manualValue.toFixed(1)) : manualValue.toFixed(manualValue < 1 ? 3 : 1)}
+                          <span className="text-xs sm:text-sm text-slate-400 font-bold">{instrumentType === 'ohmmeter' ? 'Ω' : currentRange.unit}</span>
+                        </span>
+                      </div>
                     </div>
-                    <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 text-center">
-                      <p className="text-[10px] font-black text-slate-400 uppercase">Voltage Reading</p>
-                      <p className="text-xl font-mono font-black text-orange-600">
-                        {(instrumentType === 'voltmeter' ? manualValue : 0).toFixed(1)} <span className="text-xs">V</span>
-                      </p>
+
+                    <div className="w-full bg-slate-900/80 p-3 rounded-xl shadow-[inset_0_2px_15px_rgba(0,0,0,0.8)] border border-slate-700/50">
+                       <div className="flex justify-start items-center mb-1.5">
+                         <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                           <Settings2 className="w-3.5 h-3.5 text-slate-500" /> Direct Signal Input
+                         </span>
+                       </div>
+                       <input 
+                         type="range" 
+                         min="0" 
+                         max={instrumentType === 'ohmmeter' ? currentRange.mid * 20 : currentRange.max * 1.1} 
+                         step={instrumentType === 'ohmmeter' ? (currentRange.mid / 10) : (currentRange.step || 1)}
+                         value={manualValue}
+                         onChange={(e) => setManualValue(parseFloat(e.target.value))}
+                         className="w-full h-2.5 rounded-full appearance-none cursor-pointer bg-slate-800 shadow-[inset_0_1px_4px_rgba(0,0,0,1)] outline-none"
+                         style={{ accentColor: themeColor === 'blue' ? '#3b82f6' : themeColor === 'orange' ? '#f97316' : '#22c55e' }}
+                       />
                     </div>
                   </div>
                 </div>
+
               </div>
             </div>
           );
@@ -314,3 +332,5 @@
     </script>
 </body>
 </html>
+```
+eof
