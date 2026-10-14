@@ -16,13 +16,18 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
-        @keyframes flow { to { stroke-dashoffset: -30; } }
-        .wire-flow { 
-            stroke-dasharray: 6 12; 
-            animation: flow var(--speed, 1s) linear infinite; 
+        @keyframes auraPulse { 
+            0%, 100% { opacity: 0.45; } 
+            50% { opacity: 0.85; } 
+        }
+        .wire-aura { 
+            animation: auraPulse 2s ease-in-out infinite; 
         }
         body {
             background-color: #e2e8f0;
+        }
+        .hw-accel {
+            will-change: transform;
         }
     </style>
 </head>
@@ -30,7 +35,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useRef, useMemo } = React;
 
         // --- INLINE ICONS ---
         const Zap = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>;
@@ -38,157 +43,639 @@
         const Gauge = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 14 4-4"/><path d="M3.34 16A10 10 0 1 1 20.66 16"/></svg>;
         const Box = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>;
         const Settings2 = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="7" r="3"/><circle cx="7" cy="17" r="3"/></svg>;
+        const Cpu = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg>;
+        const AlertTriangle = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>;
+        const Move = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>;
+        const RotateCcw = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>;
+        const Trash2 = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>;
+        const Cable = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 9a2 2 0 0 1-2-2V5h6v2a2 2 0 0 1-2 2Z"/><path d="M3 5V3"/><path d="M7 5V3"/><path d="M19 15V6.5a3.5 3.5 0 0 0-7 0v11a3.5 3.5 0 0 1-7 0V9"/><path d="M17 21v-2"/><path d="M21 21v-2"/><path d="M22 19h-6v-2a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2Z"/></svg>;
+
+        const DEFAULT_POSITIONS = {
+          supply: { x: 40, y: 80 },
+          switchBox: { x: 65, y: 405 },
+          load: { x: 385, y: 175 },
+          meter: { x: 695, y: 60 }
+        };
+
+        const TERMINAL_META = {
+          supplyPos: { label: 'Supply (+)', color: '#ef4444' },
+          supplyNeg: { label: 'Supply (-)', color: '#64748b' },
+          switchIn:  { label: 'Switch (IN)', color: '#eab308' },
+          switchOut: { label: 'Switch (OUT)', color: '#eab308' },
+          loadTop:   { label: 'Load Node A', color: '#ef4444' },
+          loadBot:   { label: 'Load Node B', color: '#38bdf8' },
+          meterRed:  { label: 'Meter (+)', color: '#ef4444' },
+          meterCom:  { label: 'Meter (COM)', color: '#38bdf8' }
+        };
+
+        // Memoized Scale Ticks so it never re-renders during needle movement or dragging
+        const ScaleDialTicks = React.memo(({ instrumentType, currentRange }) => {
+          const ticks = [];
+          const centerX = 300; const centerY = 320; const rBase = 220;
+          
+          const screws = [ [60,60], [540,60], [60,340], [540,340] ];
+          screws.forEach((pos, i) => {
+            ticks.push(<circle key={`screw-${i}`} cx={pos[0]} cy={pos[1]} r="7" fill="#cbd5e1" stroke="#64748b" strokeWidth="1.5" />);
+            ticks.push(<line key={`screw-l-${i}`} x1={pos[0]-4} y1={pos[1]-4} x2={pos[0]+4} y2={pos[1]+4} stroke="#334155" strokeWidth="1.5" />);
+          });
+
+          ticks.push(<path key="mirror" d="M 120 200 A 220 220 0 0 1 480 200" fill="none" stroke="#e2e8f0" strokeWidth="35" />);
+          ticks.push(<path key="mirror-inner" d="M 120 200 A 220 220 0 0 1 480 200" fill="none" stroke="#cbd5e1" strokeWidth="33" />);
+          ticks.push(<path key="track" d="M 100 200 A 240 240 0 0 1 500 200" fill="none" stroke="#1e293b" strokeWidth="3" />);
+
+          if (instrumentType === 'ohmmeter') {
+            const marks = [
+              {v: 1000000, l: '∞', f: 0.0},
+              {v: 500, l: '500', f: currentRange.mid / (500 + currentRange.mid)},
+              {v: 100, l: '100', f: currentRange.mid / (100 + currentRange.mid)},
+              {v: 50, l: '50', f: currentRange.mid / (50 + currentRange.mid)},
+              {v: 30, l: '30', f: currentRange.mid / (30 + currentRange.mid)},
+              {v: 15, l: '15', f: 0.5},
+              {v: 10, l: '10', f: currentRange.mid / (10 + currentRange.mid)},
+              {v: 5, l: '5', f: currentRange.mid / (5 + currentRange.mid)},
+              {v: 0, l: '0', f: 1.0}
+            ];
+            marks.forEach((mark, i) => {
+              const angleDeg = -50 + (mark.f * 100);
+              const angleRad = (angleDeg * Math.PI) / 180;
+              ticks.push(<line key={`omark-${i}`} x1={centerX + rBase * Math.sin(angleRad)} y1={centerY - rBase * Math.cos(angleRad)} x2={centerX + (rBase + 15) * Math.sin(angleRad)} y2={centerY - (rBase + 15) * Math.cos(angleRad)} stroke="#0f172a" strokeWidth="2.5" />);
+              ticks.push(<text key={`otxt-${i}`} x={centerX + (rBase + 35) * Math.sin(angleRad)} y={centerY - (rBase + 35) * Math.cos(angleRad)} fill="#0f172a" fontSize="16" fontWeight="900" textAnchor="middle" dominantBaseline="middle" fontFamily="sans-serif">{mark.l}</text>);
+            });
+            for (let i = 1; i <= 20; i++) {
+               const f = i / 20;
+               const angleDeg = -50 + (f * 100);
+               const angleRad = (angleDeg * Math.PI) / 180;
+               ticks.push(<line key={`osub-${i}`} x1={centerX + rBase * Math.sin(angleRad)} y1={centerY - rBase * Math.cos(angleRad)} x2={centerX + (rBase + 6) * Math.sin(angleRad)} y2={centerY - (rBase + 6) * Math.cos(angleRad)} stroke="#475569" strokeWidth="1" />);
+            }
+          } else {
+            for (let i = 0; i <= 50; i++) {
+              const fraction = i / 50;
+              const angleDeg = -50 + (fraction * 100);
+              const angleRad = (angleDeg * Math.PI) / 180;
+              const isMain = i % 10 === 0;
+              const isMid = i % 5 === 0 && !isMain;
+              const lineLen = isMain ? 18 : (isMid ? 12 : 7);
+              ticks.push(<line key={`tick-${i}`} x1={centerX + rBase * Math.sin(angleRad)} y1={centerY - rBase * Math.cos(angleRad)} x2={centerX + (rBase + lineLen) * Math.sin(angleRad)} y2={centerY - (rBase + lineLen) * Math.cos(angleRad)} stroke="#0f172a" strokeWidth={isMain ? "2.5" : (isMid ? "1.5" : "1")} />);
+              if (isMain) {
+                const val = (fraction * currentRange.max * (currentRange.displayMult || 1));
+                ticks.push(<text key={`txt-${i}`} x={centerX + (rBase + 35) * Math.sin(angleRad)} y={centerY - (rBase + 35) * Math.cos(angleRad)} fill="#0f172a" fontSize="16" fontWeight="900" textAnchor="middle" dominantBaseline="middle" fontFamily="sans-serif">{val >= 10 ? Math.round(val) : val.toFixed(1)}</text>);
+              }
+            }
+          }
+          return <g>{ticks}</g>;
+        });
 
         const ElectricalLabSimulation = () => {
-          const AMMETER_RANGES = [
-            { label: '2 mA', max: 0.002, unit: 'mA', displayMult: 1000, step: 0.0001 },
+          const AMMETER_RANGES = useMemo(() => [
+            { label: '2 mA', max: 0.002, unit: 'mA', displayMult: 1000, step: 0.00005 },
             { label: '100 mA', max: 0.1, unit: 'mA', displayMult: 1000, step: 0.001 },
-            { label: '500 mA', max: 0.5, unit: 'mA', displayMult: 1000, step: 0.01 },
-            { label: '5 A', max: 5, unit: 'A', displayMult: 1, step: 0.1 }
-          ];
+            { label: '500 mA', max: 0.5, unit: 'mA', displayMult: 1000, step: 0.005 },
+            { label: '5 A', max: 5, unit: 'A', displayMult: 1, step: 0.05 }
+          ], []);
 
-          const VOLTMETER_RANGES = [
-            { label: '3 V', max: 3, unit: 'V', step: 0.1 },
-            { label: '15 V', max: 15, unit: 'V', step: 0.5 },
-            { label: '30 V', max: 30, unit: 'V', step: 1 },
-            { label: '300 V', max: 300, unit: 'V', step: 10 }
-          ];
+          const VOLTMETER_RANGES = useMemo(() => [
+            { label: '3 V', max: 3, unit: 'V', step: 0.05 },
+            { label: '15 V', max: 15, unit: 'V', step: 0.2 },
+            { label: '30 V', max: 30, unit: 'V', step: 0.5 },
+            { label: '300 V', max: 300, unit: 'V', step: 5 }
+          ], []);
 
-          const OHMMETER_RANGES = [
+          const OHMMETER_RANGES = useMemo(() => [
             { label: 'x 1', multiplier: 1, mid: 15 },
             { label: 'x 10', multiplier: 10, mid: 150 },
             { label: 'x 100', multiplier: 100, mid: 1500 },
             { label: 'x 1k', multiplier: 1000, mid: 15000 }
-          ];
+          ], []);
 
+          // Mode & Instrument State
+          const [appMode, setAppMode] = useState('circuit'); // 'manual' | 'circuit'
           const [instrumentType, setInstrumentType] = useState('ammeter'); 
           const [selectedRangeIndex, setSelectedRangeIndex] = useState(1);
+          
+          // Direct Manual Input State
           const [manualValue, setManualValue] = useState(0);
 
+          // Real Circuit Simulation State
+          const [circuitVoltage, setCircuitVoltage] = useState(12.0);
+          const [circuitResistance, setCircuitResistance] = useState(150);
+          const [isSwitchClosed, setIsSwitchClosed] = useState(true);
+
+          // Interactive User Wiring State (Starts empty so user wires it themselves!)
+          const [wires, setWires] = useState([]);
+          const [wireDraft, setWireDraft] = useState(null); // { from, x, y }
+          const [selectedTerminal, setSelectedTerminal] = useState(null); // For click-to-click wiring
+          const [hoveredTerminal, setHoveredTerminal] = useState(null);
+          const [wireColor, setWireColor] = useState('#ef4444');
+
+          // 3D Workbench Draggable Positions
+          const [positions, setPositions] = useState(DEFAULT_POSITIONS);
+          const [draggingId, setDraggingId] = useState(null);
+          const dragOffset = useRef({ x: 0, y: 0 });
+          const benchRef = useRef(null);
+
+          // Direct DOM Ref for 60FPS Needle without React Re-renders
+          const needleGroupRef = useRef(null);
           const needlePhysics = useRef({ pos: 0, vel: 0, target: 0 });
-          const [needlePos, setNeedlePos] = useState(0);
 
           const ranges = instrumentType === 'ammeter' ? AMMETER_RANGES : (instrumentType === 'voltmeter' ? VOLTMETER_RANGES : OHMMETER_RANGES);
           const currentRange = ranges[selectedRangeIndex];
 
-          useEffect(() => {
-            if (instrumentType === 'ohmmeter') {
-              setManualValue(currentRange.mid);
-            } else {
-              setManualValue(0);
+          // Compute exact 3D terminal pin coordinates in the 1150x640 workspace
+          const terminals = useMemo(() => ({
+            supplyPos: { x: positions.supply.x + 70, y: positions.supply.y + 235 },
+            supplyNeg: { x: positions.supply.x + 190, y: positions.supply.y + 235 },
+            switchIn:  { x: positions.switchBox.x + 45, y: positions.switchBox.y + 85 },
+            switchOut: { x: positions.switchBox.x + 175, y: positions.switchBox.y + 85 },
+            loadTop:   { x: positions.load.x + 115, y: positions.load.y + 42 },
+            loadBot:   { x: positions.load.x + 115, y: positions.load.y + 238 },
+            meterRed:  { x: positions.meter.x + 125, y: positions.meter.y + 492 },
+            meterCom:  { x: positions.meter.x + 285, y: positions.meter.y + 492 }
+          }), [positions]);
+
+          // Helper to convert screen mouse/touch coordinates to SVG 1150x640 space
+          const getSvgCoords = (e) => {
+            if (!benchRef.current) return { x: 0, y: 0 };
+            const rect = benchRef.current.getBoundingClientRect();
+            const clientX = e.touches && e.touches.length > 0 ? e.touches[0].clientX : (e.changedTouches && e.changedTouches.length > 0 ? e.changedTouches[0].clientX : e.clientX);
+            const clientY = e.touches && e.touches.length > 0 ? e.touches[0].clientY : (e.changedTouches && e.changedTouches.length > 0 ? e.changedTouches[0].clientY : e.clientY);
+            return {
+              x: (clientX - rect.left) * (1150 / rect.width),
+              y: (clientY - rect.top) * (640 / rect.height)
+            };
+          };
+
+          // Add a wire between two terminals
+          const addWireBetween = (fromId, toId) => {
+            if (!fromId || !toId || fromId === toId) return;
+            setWires((prev) => {
+              const exists = prev.some(
+                (w) => (w.from === fromId && w.to === toId) || (w.from === toId && w.to === fromId)
+              );
+              if (exists) return prev;
+              // Auto-pick intuitive wire color or use active wireColor
+              let color = wireColor;
+              if (fromId === 'supplyPos' || toId === 'supplyPos' || fromId === 'meterRed' || toId === 'meterRed') color = '#ef4444';
+              else if (fromId === 'supplyNeg' || toId === 'supplyNeg' || fromId === 'meterCom' || toId === 'meterCom') color = '#38bdf8';
+              return [...prev, { id: `${fromId}-${toId}-${Date.now()}`, from: fromId, to: toId, color }];
+            });
+          };
+
+          // Start dragging a wire from a terminal OR complete click-to-click connection
+          const handleTerminalDown = (termId, e) => {
+            e.stopPropagation();
+            if (selectedTerminal && selectedTerminal !== termId) {
+              addWireBetween(selectedTerminal, termId);
+              setSelectedTerminal(null);
+              setWireDraft(null);
+              return;
             }
-          }, [instrumentType, selectedRangeIndex]);
+            const coords = getSvgCoords(e);
+            setSelectedTerminal(termId);
+            setWireDraft({ from: termId, x: coords.x, y: coords.y });
+          };
+
+          // Dragging Handlers for 3D Equipment Modules
+          const startDrag = (id, e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+            e.stopPropagation();
+            const coords = getSvgCoords(e);
+            dragOffset.current = {
+              x: coords.x - positions[id].x,
+              y: coords.y - positions[id].y
+            };
+            setDraggingId(id);
+          };
 
           useEffect(() => {
+            if (!draggingId && !wireDraft) return;
+            let rafId = null;
+
+            const handleMove = (e) => {
+              const coords = getSvgCoords(e);
+              if (rafId) cancelAnimationFrame(rafId);
+              rafId = requestAnimationFrame(() => {
+                if (draggingId) {
+                  setPositions((prev) => ({
+                    ...prev,
+                    [draggingId]: {
+                      x: Math.max(15, Math.min(1150 - 240, coords.x - dragOffset.current.x)),
+                      y: Math.max(45, Math.min(640 - 150, coords.y - dragOffset.current.y))
+                    }
+                  }));
+                } else if (wireDraft) {
+                  setWireDraft((prev) => prev ? { ...prev, x: coords.x, y: coords.y } : null);
+                }
+              });
+            };
+
+            const handleUp = (e) => {
+              if (rafId) cancelAnimationFrame(rafId);
+              if (draggingId) {
+                setDraggingId(null);
+              }
+              if (wireDraft) {
+                const coords = getSvgCoords(e);
+                let hitTerm = null;
+                Object.entries(terminals).forEach(([id, pt]) => {
+                  if (Math.hypot(pt.x - coords.x, pt.y - coords.y) < 30) {
+                    hitTerm = id;
+                  }
+                });
+                if (hitTerm && hitTerm !== wireDraft.from) {
+                  addWireBetween(wireDraft.from, hitTerm);
+                  setSelectedTerminal(null);
+                }
+                setWireDraft(null);
+              }
+            };
+
+            window.addEventListener('mousemove', handleMove, { passive: true });
+            window.addEventListener('mouseup', handleUp);
+            window.addEventListener('touchmove', handleMove, { passive: true });
+            window.addEventListener('touchend', handleUp);
+            return () => {
+              if (rafId) cancelAnimationFrame(rafId);
+              window.removeEventListener('mousemove', handleMove);
+              window.removeEventListener('mouseup', handleUp);
+              window.removeEventListener('touchmove', handleMove);
+              window.removeEventListener('touchend', handleUp);
+            };
+          }, [draggingId, wireDraft, terminals]);
+
+          // Real Nodal Circuit Analysis (MNA Solver) based on user-connected wires
+          const circuitSolution = useMemo(() => {
+            const termIds = ['supplyPos', 'supplyNeg', 'switchIn', 'switchOut', 'loadTop', 'loadBot', 'meterRed', 'meterCom'];
+            const parent = {};
+            termIds.forEach((t) => (parent[t] = t));
+            const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+            const union = (i, j) => {
+              const r1 = find(i);
+              const r2 = find(j);
+              if (r1 !== r2) parent[r1] = r2;
+            };
+
+            // Merge nodes connected by user wires
+            wires.forEach((w) => union(w.from, w.to));
+            // Merge switch terminals if switch is ON
+            if (isSwitchClosed) union('switchIn', 'switchOut');
+
+            const isPowered = circuitVoltage > 0 && find('supplyPos') !== find('supplyNeg');
+
+            // Check if Ohmmeter is connected to live voltage
             if (instrumentType === 'ohmmeter') {
-              const safeRes = Math.max(0, manualValue);
-              const fraction = currentRange.mid / (safeRes + currentRange.mid);
-              needlePhysics.current.target = fraction;
+              const mRed = find('meterRed');
+              const mCom = find('meterCom');
+              const sPos = find('supplyPos');
+              const sNeg = find('supplyNeg');
+              const liveError = isPowered && ((mRed === sPos && mCom === sNeg) || (mRed === sNeg && mCom === sPos));
+
+              // Calculate resistance between meterRed and meterCom when circuit is safe
+              let measuredR = Infinity;
+              if (mRed === mCom) {
+                measuredR = 0;
+              } else {
+                const lTop = find('loadTop');
+                const lBot = find('loadBot');
+                if ((mRed === lTop && mCom === lBot) || (mRed === lBot && mCom === lTop)) {
+                  measuredR = circuitResistance;
+                }
+              }
+
+              // Also check if lamp is independently powered by supply
+              const lampPowered = isPowered && ((find('loadTop') === sPos && find('loadBot') === sNeg) || (find('loadTop') === sNeg && find('loadBot') === sPos));
+              const lampI = lampPowered ? circuitVoltage / Math.max(0.1, circuitResistance) : 0;
+
+              return {
+                supplyCurrent: lampI,
+                loadCurrent: lampI,
+                loadPower: lampI * lampI * circuitResistance,
+                meterReading: measuredR,
+                isShortCircuit: isPowered && find('supplyPos') === find('supplyNeg'),
+                isOhmmeterLiveError: liveError,
+                activeWires: lampI > 0.0001
+              };
+            }
+
+            // Nodal voltage solver for Ammeter & Voltmeter modes
+            const groups = [...new Set(termIds.map(find))];
+            const gNeg = find('supplyNeg');
+            const gPos = find('supplyPos');
+
+            // Short circuit across power supply
+            if (gPos === gNeg && wires.length > 0) {
+              const hasDirectShort = wires.some(w => find(w.from) === gPos);
+              if (hasDirectShort) {
+                return {
+                  supplyCurrent: 0,
+                  loadCurrent: 0,
+                  loadPower: 0,
+                  meterReading: 0,
+                  isShortCircuit: false,
+                  isOhmmeterLiveError: false,
+                  activeWires: false
+                };
+              }
+            }
+
+            const R_load = Math.max(0.1, circuitResistance);
+            const R_meter = instrumentType === 'ammeter' ? 0.01 : 10000000;
+
+            const V = {};
+            groups.forEach((g) => (V[g] = 0));
+            V[gNeg] = 0;
+            if (gPos !== gNeg) V[gPos] = circuitVoltage;
+
+            const unknownGroups = groups.filter((g) => g !== gNeg && g !== gPos);
+            const edges = [
+              { a: find('loadTop'), b: find('loadBot'), g: 1 / R_load },
+              { a: find('meterRed'), b: find('meterCom'), g: 1 / R_meter }
+            ];
+
+            // Iterative relaxation (exact for 1-2 unknown nodes)
+            for (let iter = 0; iter < 40; iter++) {
+              unknownGroups.forEach((u) => {
+                let num = 0;
+                let den = 0;
+                edges.forEach((e) => {
+                  if (e.a === u && e.b !== u) {
+                    num += V[e.b] * e.g;
+                    den += e.g;
+                  } else if (e.b === u && e.a !== u) {
+                    num += V[e.a] * e.g;
+                    den += e.g;
+                  }
+                });
+                V[u] = den > 0 ? num / den : 0;
+              });
+            }
+
+            // Verify node reachability to both supplyPos and supplyNeg so disconnected floating nodes read 0
+            const adj = {};
+            groups.forEach((g) => (adj[g] = []));
+            edges.forEach((e) => {
+              if (e.a !== e.b) {
+                adj[e.a].push(e.b);
+                adj[e.b].push(e.a);
+              }
+            });
+
+            const canReach = (start, target) => {
+              const visited = new Set([start]);
+              const q = [start];
+              while (q.length > 0) {
+                const curr = q.shift();
+                if (curr === target) return true;
+                (adj[curr] || []).forEach((nxt) => {
+                  if (!visited.has(nxt)) {
+                    visited.add(nxt);
+                    q.push(nxt);
+                  }
+                });
+              }
+              return false;
+            };
+
+            const mRedGroup = find('meterRed');
+            const mComGroup = find('meterCom');
+
+            // Helper to check if a node has a valid closed path between supplyPos and supplyNeg
+            const isNodeInActiveLoop = (nodeGroup) => {
+              return gPos !== gNeg && canReach(gPos, nodeGroup) && canReach(nodeGroup, gNeg);
+            };
+
+            const circuitComplete =
+              circuitVoltage > 0 &&
+              gPos !== gNeg &&
+              canReach(gPos, gNeg);
+
+            if (!circuitComplete) {
+              return {
+                supplyCurrent: 0,
+                loadCurrent: 0,
+                loadPower: 0,
+                meterReading: 0,
+                isShortCircuit: false,
+                isOhmmeterLiveError: false,
+                isReversePolarity: false,
+                isMeterValid: false,
+                activeWires: false
+              };
+            }
+
+            const vLoad = Math.abs(V[find('loadTop')] - V[find('loadBot')]);
+            const iLoad = vLoad / R_load;
+            const pLoad = vLoad * iLoad;
+
+            // Signed voltage difference across meter (+ terminal minus COM terminal)
+            const vMeterSigned = V[mRedGroup] - V[mComGroup];
+            const iMeterSigned = vMeterSigned / R_meter;
+
+            // Check that BOTH meter terminals are actually connected to active powered nodes
+            const meterConnectedToLive =
+              mRedGroup !== mComGroup &&
+              isNodeInActiveLoop(mRedGroup) &&
+              isNodeInActiveLoop(mComGroup);
+
+            const isReversePolarity =
+              meterConnectedToLive && vMeterSigned < -0.0001;
+
+            const isShortCircuit =
+              instrumentType === 'ammeter' &&
+              Math.abs(iMeterSigned) > 100 &&
+              iLoad < 0.01;
+
+            // Only show a valid reading if connected properly, powered, and right polarity
+            let meterReading = 0;
+            let isMeterValid = false;
+
+            if (meterConnectedToLive && !isReversePolarity && !isShortCircuit) {
+              if (instrumentType === 'ammeter' && iMeterSigned > 0.00001) {
+                meterReading = iMeterSigned;
+                isMeterValid = true;
+              } else if (instrumentType === 'voltmeter' && vMeterSigned > 0.0001) {
+                meterReading = vMeterSigned;
+                isMeterValid = true;
+              }
+            }
+
+            return {
+              supplyCurrent: Math.max(iLoad, Math.abs(iMeterSigned)),
+              loadCurrent: iLoad,
+              loadPower: pLoad,
+              meterReading,
+              isShortCircuit,
+              isOhmmeterLiveError: false,
+              isReversePolarity,
+              isMeterValid,
+              activeWires: Math.max(iLoad, Math.abs(iMeterSigned)) > 0.00001
+            };
+          }, [wires, isSwitchClosed, circuitVoltage, circuitResistance, instrumentType]);
+
+          // Effective Measured Value
+          const activeMeasuredValue = useMemo(() => {
+            if (appMode === 'manual') return manualValue;
+            return circuitSolution.meterReading;
+          }, [appMode, manualValue, circuitSolution.meterReading]);
+
+          // Reset manual value when switching ranges in manual mode
+          useEffect(() => {
+            if (appMode === 'manual') {
+              if (instrumentType === 'ohmmeter') {
+                setManualValue(currentRange.mid);
+              } else {
+                setManualValue(0);
+              }
+            }
+          }, [instrumentType, selectedRangeIndex, appMode, currentRange]);
+
+          // Ultra-Smooth 60FPS Direct DOM Needle Physics (Zero React State Re-renders!)
+          useEffect(() => {
+            if (appMode === 'circuit' && circuitSolution.isOhmmeterLiveError) {
+              needlePhysics.current.target = 1.15;
+            } else if (appMode === 'circuit' && circuitSolution.isReversePolarity) {
+              needlePhysics.current.target = -0.05; // Deflect slightly backward on reverse polarity
+            } else if (instrumentType === 'ohmmeter') {
+              if (!isFinite(activeMeasuredValue)) {
+                needlePhysics.current.target = 0; // Infinity is at left (0 deflection)
+              } else {
+                const safeRes = Math.max(0, activeMeasuredValue);
+                needlePhysics.current.target = currentRange.mid / (safeRes + currentRange.mid);
+              }
             } else {
-              const targetValue = manualValue / currentRange.max;
-              needlePhysics.current.target = targetValue;
+              if (appMode === 'circuit' && !circuitSolution.isMeterValid) {
+                needlePhysics.current.target = 0;
+              } else {
+                needlePhysics.current.target = activeMeasuredValue / currentRange.max;
+              }
             }
 
             let animationFrameId;
             let lastTime = performance.now();
+
             const animate = (time) => {
               const dt = Math.min((time - lastTime) / 1000, 0.05);
               lastTime = time;
-              const tension = 160; 
-              const friction = 10;
+              const tension = 175; 
+              const friction = 14;
               
-              const acc = (needlePhysics.current.target - needlePhysics.current.pos) * tension - (needlePhysics.current.vel * friction);
+              const diff = needlePhysics.current.target - needlePhysics.current.pos;
+              const acc = diff * tension - (needlePhysics.current.vel * friction);
               needlePhysics.current.vel += acc * dt;
               needlePhysics.current.pos += needlePhysics.current.vel * dt;
-              setNeedlePos(needlePhysics.current.pos);
-              
-              animationFrameId = requestAnimationFrame(animate);
+
+              // Directly mutate SVG transform attribute for 60fps butter-smooth motion
+              if (needleGroupRef.current) {
+                const clamped = Math.min(Math.max(needlePhysics.current.pos, -0.05), 1.15);
+                const angle = -50 + (clamped * 100);
+                needleGroupRef.current.setAttribute('transform', `rotate(${angle.toFixed(2)}, 300, 320)`);
+              }
+
+              if (Math.abs(diff) > 0.0005 || Math.abs(needlePhysics.current.vel) > 0.0005) {
+                animationFrameId = requestAnimationFrame(animate);
+              }
             };
             animationFrameId = requestAnimationFrame(animate);
             return () => cancelAnimationFrame(animationFrameId);
-          }, [manualValue, selectedRangeIndex, instrumentType, currentRange]);
+          }, [activeMeasuredValue, selectedRangeIndex, instrumentType, currentRange, appMode, circuitSolution]);
 
-          const activeNeedlePos = needlePos;
-          const isOverload = activeNeedlePos > 1.05;
+          const targetFraction = useMemo(() => {
+            if (appMode === 'circuit' && circuitSolution.isOhmmeterLiveError) return 1.15;
+            if (appMode === 'circuit' && circuitSolution.isReversePolarity) return -0.05;
+            if (instrumentType === 'ohmmeter') {
+              return !isFinite(activeMeasuredValue) ? 0 : currentRange.mid / (Math.max(0, activeMeasuredValue) + currentRange.mid);
+            }
+            if (appMode === 'circuit' && !circuitSolution.isMeterValid) return 0;
+            return activeMeasuredValue / currentRange.max;
+          }, [activeMeasuredValue, instrumentType, currentRange, appMode, circuitSolution]);
+
+          const isOverload =
+            targetFraction > 1.05 ||
+            (appMode === 'circuit' &&
+              (circuitSolution.isOhmmeterLiveError ||
+                circuitSolution.isShortCircuit ||
+                circuitSolution.isReversePolarity));
           const themeColor = instrumentType === 'ammeter' ? 'blue' : instrumentType === 'voltmeter' ? 'orange' : 'green';
 
-          const renderTicks = () => {
-            const ticks = [];
-            const centerX = 300; const centerY = 320; const rBase = 220;
-            
-            const screws = [ [60,60], [540,60], [60,340], [540,340] ];
-            screws.forEach((pos, i) => {
-              ticks.push(<circle key={`screw-${i}`} cx={pos[0]} cy={pos[1]} r="7" fill="url(#metal-grad)" stroke="#94a3b8" strokeWidth="1" />);
-              ticks.push(<line key={`screw-l-${i}`} x1={pos[0]-4} y1={pos[1]-4} x2={pos[0]+4} y2={pos[1]+4} stroke="#475569" strokeWidth="1.5" />);
-            });
-
-            ticks.push(
-               <path key="mirror" d="M 120 200 A 220 220 0 0 1 480 200" fill="none" stroke="#e2e8f0" strokeWidth="35" />
-            );
-            ticks.push(
-               <path key="mirror-inner" d="M 120 200 A 220 220 0 0 1 480 200" fill="none" stroke="#cbd5e1" strokeWidth="33" />
-            );
-            ticks.push(
-               <path key="track" d="M 100 200 A 240 240 0 0 1 500 200" fill="none" stroke="#1e293b" strokeWidth="3" />
-            );
-
-            if (instrumentType === 'ohmmeter') {
-              const marks = [
-                {v: 1000000, l: '∞', f: 0.0},
-                {v: 500, l: '500', f: currentRange.mid / (500 + currentRange.mid)},
-                {v: 100, l: '100', f: currentRange.mid / (100 + currentRange.mid)},
-                {v: 50, l: '50', f: currentRange.mid / (50 + currentRange.mid)},
-                {v: 30, l: '30', f: currentRange.mid / (30 + currentRange.mid)},
-                {v: 15, l: '15', f: 0.5},
-                {v: 10, l: '10', f: currentRange.mid / (10 + currentRange.mid)},
-                {v: 5, l: '5', f: currentRange.mid / (5 + currentRange.mid)},
-                {v: 0, l: '0', f: 1.0}
-              ];
-              marks.forEach((mark, i) => {
-                const angleDeg = -50 + (mark.f * 100);
-                const angleRad = (angleDeg * Math.PI) / 180;
-                ticks.push(<line key={`omark-${i}`} x1={centerX + rBase * Math.sin(angleRad)} y1={centerY - rBase * Math.cos(angleRad)} x2={centerX + (rBase + 15) * Math.sin(angleRad)} y2={centerY - (rBase + 15) * Math.cos(angleRad)} stroke="#0f172a" strokeWidth="2.5" />);
-                ticks.push(<text key={`otxt-${i}`} x={centerX + (rBase + 35) * Math.sin(angleRad)} y={centerY - (rBase + 35) * Math.cos(angleRad)} fill="#0f172a" fontSize="16" fontWeight="900" textAnchor="middle" dominantBaseline="middle" fontFamily="sans-serif">{mark.l}</text>);
-              });
-              for (let i = 1; i <= 20; i++) {
-                 const f = i / 20;
-                 const angleDeg = -50 + (f * 100);
-                 const angleRad = (angleDeg * Math.PI) / 180;
-                 ticks.push(<line key={`osub-${i}`} x1={centerX + rBase * Math.sin(angleRad)} y1={centerY - rBase * Math.cos(angleRad)} x2={centerX + (rBase + 6) * Math.sin(angleRad)} y2={centerY - (rBase + 6) * Math.cos(angleRad)} stroke="#475569" strokeWidth="1" />);
+          // Format Digital Readout Value
+          const formatDigitalReadout = () => {
+            if (appMode === 'circuit') {
+              if (circuitSolution.isOhmmeterLiveError) return 'ERR';
+              if (circuitSolution.isShortCircuit) return 'SHORT';
+              if (circuitSolution.isReversePolarity) return '-POL';
+              if (instrumentType === 'ohmmeter') {
+                if (!isFinite(activeMeasuredValue)) return '---';
+                if (activeMeasuredValue > currentRange.mid * 25) return 'O.L';
+                return activeMeasuredValue >= 1000
+                  ? (activeMeasuredValue / 1000).toFixed(2) + 'k'
+                  : activeMeasuredValue.toFixed(1);
               }
-            } else {
-              for (let i = 0; i <= 50; i++) {
-                const fraction = i / 50;
-                const angleDeg = -50 + (fraction * 100);
-                const angleRad = (angleDeg * Math.PI) / 180;
-                const isMain = i % 10 === 0;
-                const isMid = i % 5 === 0 && !isMain;
-                const lineLen = isMain ? 18 : (isMid ? 12 : 7);
-                ticks.push(<line key={`tick-${i}`} x1={centerX + rBase * Math.sin(angleRad)} y1={centerY - rBase * Math.cos(angleRad)} x2={centerX + (rBase + lineLen) * Math.sin(angleRad)} y2={centerY - (rBase + lineLen) * Math.cos(angleRad)} stroke="#0f172a" strokeWidth={isMain ? "2.5" : (isMid ? "1.5" : "1")} />);
-                if (isMain) {
-                  const val = (fraction * currentRange.max * (currentRange.displayMult || 1));
-                  ticks.push(<text key={`txt-${i}`} x={centerX + (rBase + 35) * Math.sin(angleRad)} y={centerY - (rBase + 35) * Math.cos(angleRad)} fill="#0f172a" fontSize="16" fontWeight="900" textAnchor="middle" dominantBaseline="middle" fontFamily="sans-serif">{val >= 10 ? Math.round(val) : val.toFixed(1)}</text>);
-                }
-              }
+              if (!circuitSolution.isMeterValid) return '---';
             }
-            return ticks;
+
+            if (instrumentType !== 'ohmmeter' && targetFraction > 1.05) return 'O.L';
+            if (instrumentType === 'ohmmeter') {
+              if (!isFinite(activeMeasuredValue) || activeMeasuredValue > currentRange.mid * 25) return 'O.L';
+              return activeMeasuredValue >= 1000 
+                ? (activeMeasuredValue / 1000).toFixed(2) + 'k' 
+                : activeMeasuredValue.toFixed(1);
+            }
+            const displayVal = activeMeasuredValue * (currentRange.displayMult || 1);
+            return displayVal.toFixed(displayVal < 10 ? 2 : 1);
+          };
+
+          // Helper to compute realistic sagging 3D cable path between two points
+          const createCablePath = (p1, p2, sag = 50) => {
+            const midX = (p1.x + p2.x) / 2;
+            const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+            const dynamicSag = Math.min(110, sag + dist * 0.1);
+            const midY = Math.max(p1.y, p2.y) + dynamicSag;
+            return `M ${p1.x} ${p1.y} Q ${midX} ${midY} ${p2.x} ${p2.y}`;
           };
 
           return (
-            <div className="min-h-screen bg-[#e2e8f0] text-slate-800 p-4 md:p-6 font-sans flex flex-col items-center relative" 
+            <div className="min-h-screen bg-[#e2e8f0] text-slate-800 p-3 md:p-5 font-sans flex flex-col items-center relative" 
                  style={{ backgroundImage: 'radial-gradient(#cbd5e1 1px, transparent 1px)', backgroundSize: '24px 24px' }}>
               
-              {}
-              <header className="w-full max-w-2xl mx-auto mb-4 flex items-center justify-between bg-white/80 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-sm border border-white/50">
+              {/* Top Single-Row Header */}
+              <header className="w-full max-w-7xl mx-auto mb-3 flex flex-wrap items-center justify-between gap-3 bg-white/90 px-4 py-2.5 rounded-2xl shadow-sm border border-white/60">
                 <div className="flex items-center gap-2.5">
                   <div className="p-2 bg-gradient-to-br from-yellow-400 to-amber-600 rounded-xl shadow-md border border-yellow-200">
                      <Zap className="text-white fill-white w-5 h-5" />
                   </div>
-                  <h1 className="text-lg md:text-xl font-black text-slate-900 tracking-tight">VIRTUAL ELECTRICAL LAB</h1>
+                  <div>
+                    <h1 className="text-base md:text-lg font-black text-slate-900 tracking-tight leading-none">VIRTUAL ELECTRICAL LAB</h1>
+                    <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">3D Interactive Simulation Suite</span>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2.5">
-                  <div className="text-right hidden sm:block">
+                {/* Mode Switcher Pills */}
+                <div className="flex bg-slate-200/80 p-1 rounded-xl border border-slate-300/60 shadow-inner order-3 sm:order-2 w-full sm:w-auto justify-center">
+                  <button
+                    onClick={() => setAppMode('manual')}
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-extrabold transition-all ${
+                      appMode === 'manual'
+                        ? 'bg-white text-slate-900 shadow-sm border border-slate-200/80'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <Settings2 className="w-3.5 h-3.5 text-indigo-500" />
+                    ฝึกอ่านสเกล (Manual)
+                  </button>
+                  <button
+                    onClick={() => setAppMode('circuit')}
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-extrabold transition-all ${
+                      appMode === 'circuit'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <Cpu className="w-3.5 h-3.5" />
+                    ต่อวงจรจริง 3D (Circuit Test Bench)
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2.5 order-2 sm:order-3">
+                  <div className="text-right hidden md:block">
                     <span className="text-[8px] font-black text-indigo-500 uppercase tracking-widest block">พัฒนาโดย</span>
                     <span className="text-xs font-bold text-slate-800">นายเมธาวัฒน์ พงสะพัง</span>
                   </div>
@@ -201,128 +688,625 @@
                 </div>
               </header>
 
-              {}
-              <div className="flex flex-col items-center w-full max-w-xl mx-auto gap-2">
-                
-                <div className="mb-2 flex bg-slate-200/50 backdrop-blur p-1 rounded-xl shadow-inner border border-white/50 w-full">
-                  {['ammeter', 'voltmeter', 'ohmmeter'].map((id) => (
-                    <button key={id} onClick={() => {setInstrumentType(id); setSelectedRangeIndex(1);}}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg font-bold transition-all duration-300 text-xs capitalize ${
-                        instrumentType === id 
-                          ? (id === 'ammeter' ? 'bg-gradient-to-b from-blue-500 to-blue-700' : id === 'voltmeter' ? 'bg-gradient-to-b from-orange-400 to-orange-600' : 'bg-gradient-to-b from-green-500 to-green-700') + ' text-white shadow-md scale-[1.02] border border-white/20' 
-                          : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
-                      }`}
-                    >
-                      {id === 'ammeter' ? <Activity className="w-3.5 h-3.5" /> : id === 'voltmeter' ? <Gauge className="w-3.5 h-3.5" /> : <Box className="w-3.5 h-3.5" />} {id}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="relative rounded-[2.5rem] p-3 bg-gradient-to-b from-slate-300 to-slate-400 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.3),inset_0_2px_5px_rgba(255,255,255,0.8),inset_0_-4px_5px_rgba(0,0,0,0.2)] border border-slate-300 w-full flex flex-col">
-                  
-                  <div className="relative flex-1 bg-gradient-to-br from-slate-800 to-slate-900 rounded-[2rem] p-4 shadow-[inset_0_10px_20px_rgba(0,0,0,0.7)] flex flex-col gap-3">
+              {/* Main Content Area */}
+              {appMode === 'circuit' ? (
+                <div className="w-full max-w-7xl mx-auto flex flex-col">
+                  {/* Outer 3D Aluminum Lab Table Frame */}
+                  <div className="rounded-[2.2rem] p-2.5 sm:p-3.5 bg-gradient-to-b from-slate-300 via-slate-400 to-slate-500 shadow-2xl border border-slate-300">
                     
-                    {/* Dial Screen */}
-                    <div className="relative w-full h-56 sm:h-64 bg-gradient-to-b from-[#ffffff] to-[#f0f4f8] rounded-2xl overflow-hidden shadow-[inset_0_0_20px_rgba(0,0,0,0.15)] border-2 border-slate-700">
-                      
-                      <svg viewBox="0 0 600 400" className="w-full h-full p-2">
+                    {/* Main Dark Carbon/ESD Mat Workbench */}
+                    <div 
+                      ref={benchRef}
+                      onClick={() => setSelectedTerminal(null)}
+                      className="relative w-full aspect-[1150/640] min-h-[540px] bg-[#0b1120] rounded-[1.7rem] overflow-hidden border-2 border-slate-700/80 select-none"
+                      style={{
+                        backgroundImage: `
+                          radial-gradient(circle at 50% 35%, rgba(30, 58, 138, 0.22), transparent 70%),
+                          linear-gradient(rgba(56, 189, 248, 0.06) 1px, transparent 1px),
+                          linear-gradient(90deg, rgba(56, 189, 248, 0.06) 1px, transparent 1px)
+                        `,
+                        backgroundSize: '100% 100%, 28px 28px, 28px 28px'
+                      }}
+                    >
+                      {/* Top Floating HUD Bar Inside Circuit Test Bench */}
+                      <div className="absolute top-3 inset-x-4 z-30 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+                        <div className="flex items-center gap-2 bg-slate-900/95 px-3.5 py-1.5 rounded-xl border border-slate-700 shadow-lg pointer-events-auto">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                          <span className="text-xs font-black text-white tracking-widest uppercase">3D CIRCUIT TEST BENCH</span>
+                          <span className="hidden lg:inline-flex items-center gap-1 text-[10px] font-bold text-amber-300 bg-amber-950/70 px-2 py-0.5 rounded-md border border-amber-700/50">
+                            <Cable className="w-3 h-3" /> คลิกหรือลากที่ขั้วต่อเพื่อโยงสายไฟเอง ({wires.length} เส้น)
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-1.5 pointer-events-auto">
+                          {/* Wire Color Picker */}
+                          <div className="flex items-center gap-1 bg-slate-900/95 px-2.5 py-1 rounded-xl border border-slate-700">
+                            <span className="text-[10px] font-bold text-slate-400 mr-1">สีสายไฟ:</span>
+                            {[
+                              { c: '#ef4444', l: 'แดง' },
+                              { c: '#38bdf8', l: 'ฟ้า/ดำ' },
+                              { c: '#eab308', l: 'เหลือง' },
+                              { c: '#22c55e', l: 'เขียว' }
+                            ].map((item) => (
+                              <button
+                                key={item.c}
+                                onClick={(e) => { e.stopPropagation(); setWireColor(item.c); }}
+                                className={`w-4 h-4 rounded-full transition-transform ${wireColor === item.c ? 'scale-125 ring-2 ring-white' : 'opacity-60 hover:opacity-100'}`}
+                                style={{ backgroundColor: item.c }}
+                                title={`สายสี${item.l}`}
+                              />
+                            ))}
+                          </div>
+
+                          {}
+                          {/* Clear All Wires Button */}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setWires([]); setSelectedTerminal(null); }}
+                            disabled={wires.length === 0}
+                            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-[11px] font-bold shadow transition active:scale-95 ${
+                              wires.length > 0 
+                                ? 'bg-rose-950/90 hover:bg-rose-900 text-rose-200 border-rose-700/60 cursor-pointer' 
+                                : 'bg-slate-900/50 text-slate-600 border-slate-800 cursor-not-allowed'
+                            }`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" /> ถอดสายทั้งหมด
+                          </button>
+
+                          {/* Reset Layout Button */}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setPositions(DEFAULT_POSITIONS); }}
+                            className="flex items-center gap-1 bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-xl border border-slate-600 text-[11px] font-bold shadow transition active:scale-95"
+                            title="จัดเรียงตำแหน่งอุปกรณ์ใหม่"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5 text-sky-400" /> รีเซ็ตตำแหน่ง
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Bottom Helper Instruction Banner when no wires are connected */}
+                      {wires.length === 0 && !wireDraft && (
+                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 bg-slate-900/95 border border-sky-500/40 text-sky-200 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-xl pointer-events-none">
+                          <Cable className="w-4 h-4 text-sky-400 animate-bounce" />
+                          <span>วิธีต่อสาย: คลิกหรือลากจาก <b>ขั้วต่อวงกลม</b> ของอุปกรณ์หนึ่ง ไปยังขั้วต่อของอีกอุปกรณ์หนึ่ง (คลิกที่เส้นสายไฟเพื่อถอดออก)</span>
+                        </div>
+                      )}
+
+                      <svg viewBox="0 0 1150 640" className="w-full h-full relative z-10">
                         <defs>
-                          <radialGradient id="metal-grad" cx="50%" cy="50%" r="50%">
-                            <stop offset="0%" stopColor="#f8fafc" />
-                            <stop offset="80%" stopColor="#94a3b8" />
-                            <stop offset="100%" stopColor="#334155" />
+                          <radialGradient id="metal-grad-3d" cx="35%" cy="35%" r="65%">
+                            <stop offset="0%" stopColor="#ffffff" />
+                            <stop offset="55%" stopColor="#94a3b8" />
+                            <stop offset="100%" stopColor="#1e293b" />
+                          </radialGradient>
+                          <radialGradient id="gold-grad" cx="35%" cy="35%" r="65%">
+                            <stop offset="0%" stopColor="#fef08a" />
+                            <stop offset="60%" stopColor="#eab308" />
+                            <stop offset="100%" stopColor="#713f12" />
+                          </radialGradient>
+                          <radialGradient id="bulb-glow-3d" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%" stopColor="#fef08a" stopOpacity="1" />
+                            <stop offset="40%" stopColor="#f59e0b" stopOpacity="0.55" />
+                            <stop offset="100%" stopColor="#f59e0b" stopOpacity="0" />
                           </radialGradient>
                         </defs>
-                        
-                        {renderTicks()}
-                        
-                        <g transform="translate(300, 260)" textAnchor="middle">
-                          <text y="-20" fontSize="16" fill="#64748b" className="font-bold tracking-widest uppercase font-sans">Class 1.5</text>
-                          <text y="10" fontSize="42" className="font-black font-serif" fill={
-                            themeColor === 'blue' ? '#1d4ed8' : themeColor === 'orange' ? '#c2410c' : '#15803d'
-                          }>{instrumentType === 'ammeter' ? 'A' : instrumentType === 'voltmeter' ? 'V' : 'Ω'}</text>
-                          <text y="35" fontSize="12" fill="#94a3b8" className="font-bold tracking-[0.3em] uppercase font-sans">Precision Instrument</text>
+
+                        {/* ========================================================= */}
+                        {/* 1. 3D DRAGGABLE DC POWER SUPPLY UNIT                      */}
+                        {/* ========================================================= */}
+                        <g 
+                          transform={`translate(${positions.supply.x}, ${positions.supply.y})`}
+                          onMouseDown={(e) => startDrag('supply', e)}
+                          onTouchStart={(e) => startDrag('supply', e)}
+                          className="cursor-grab active:cursor-grabbing hw-accel"
+                        >
+                          {/* Lightweight Fake 3D Shadow Rect (Fastest 60fps performance) */}
+                          <rect x="6" y="16" width="260" height="265" rx="22" fill="rgba(0,0,0,0.45)" />
+                          <rect x="0" y="10" width="260" height="265" rx="22" fill="#0f172a" />
+                          <rect x="0" y="0" width="260" height="262" rx="22" fill="#334155" stroke="#64748b" strokeWidth="2" />
+                          <rect x="8" y="8" width="244" height="246" rx="16" fill="#1e293b" stroke="#0f172a" strokeWidth="2" />
+
+                          {/* Top Handle / Grip Bar */}
+                          <rect x="75" y="15" width="110" height="6" rx="3" fill="#475569" />
+                          <text x="130" y="34" fill="#94a3b8" fontSize="10" fontWeight="900" textAnchor="middle" letterSpacing="1.5">DC POWER SUPPLY</text>
+
+                          {/* Glowing Dual Digital OLED Screen */}
+                          <rect x="20" y="44" width="220" height="76" rx="10" fill="#050811" stroke="#334155" strokeWidth="2" />
+                          <text x="32" y="62" fill="#64748b" fontSize="9" fontWeight="bold">OUTPUT VOLTAGE</text>
+                          <text x="228" y="62" fill="#10b981" fontSize="9" fontWeight="bold" textAnchor="end">CV MODE</text>
+                          <text x="130" y="96" fill="#fbbf24" fontSize="32" fontWeight="900" fontFamily="monospace" textAnchor="middle">
+                            {circuitVoltage.toFixed(1)} V
+                          </text>
+                          <text x="130" y="114" fill="#38bdf8" fontSize="11" fontWeight="bold" fontFamily="monospace" textAnchor="middle">
+                            I = {circuitSolution.supplyCurrent < 1 ? (circuitSolution.supplyCurrent * 1000).toFixed(1) + ' mA' : circuitSolution.supplyCurrent.toFixed(2) + ' A'}
+                          </text>
+
+                          {/* Embedded Interactive Voltage Slider inside 3D Supply */}
+                          <foreignObject x="20" y="130" width="220" height="62">
+                            <div xmlns="http://www.w3.org/1999/xhtml" className="bg-slate-900/95 p-2.5 rounded-xl border border-slate-700/80">
+                              <div className="flex justify-between text-[10px] font-black text-amber-400 mb-1">
+                                <span>VOLTAGE ADJUST</span>
+                                <span>0 - 30V</span>
+                              </div>
+                              <input
+                                type="range" min="0" max="30" step="0.5"
+                                value={circuitVoltage}
+                                onChange={(e) => setCircuitVoltage(parseFloat(e.target.value))}
+                                className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-slate-800 accent-amber-400"
+                              />
+                            </div>
+                          </foreignObject>
+
+                          {/* Terminal Labels */}
+                          <text x="70" y="212" fill="#f87171" fontSize="10" fontWeight="900" textAnchor="middle">+ POS (RED)</text>
+                          <text x="190" y="212" fill="#cbd5e1" fontSize="10" fontWeight="900" textAnchor="middle">- NEG (BLK)</text>
                         </g>
-                        
-                        <g transform={`rotate(${-50 + (Math.min(Math.max(activeNeedlePos, -0.05), 1.15) * 100)}, 300, 320)`}>
-                          <polygon points="296,330 304,330 301,45 299,45" fill="rgba(0,0,0,0.25)" transform="translate(6, 12)" filter="blur(3px)" />
-                          <path d="M 292 320 L 308 320 L 304 350 L 296 350 Z" fill="#1e293b" />
-                          <polygon points="295,320 305,320 301,45 299,45" fill={isOverload ? "#ef4444" : "#f03e3e"} />
-                          <polygon points="299,320 301,320 300.5,45 299.5,45" fill="rgba(255,255,255,0.4)" />
+
+                        {/* ========================================================= */}
+                        {/* 2. 3D DRAGGABLE CIRCUIT BREAKER / KNIFE SWITCH MODULE     */}
+                        {/* ========================================================= */}
+                        <g 
+                          transform={`translate(${positions.switchBox.x}, ${positions.switchBox.y})`}
+                          onMouseDown={(e) => startDrag('switchBox', e)}
+                          onTouchStart={(e) => startDrag('switchBox', e)}
+                          className="cursor-grab active:cursor-grabbing hw-accel"
+                        >
+                          <rect x="6" y="16" width="220" height="150" rx="20" fill="rgba(0,0,0,0.45)" />
+                          <rect x="0" y="10" width="220" height="150" rx="20" fill="#0f172a" />
+                          <rect x="0" y="0" width="220" height="146" rx="20" fill="#334155" stroke="#64748b" strokeWidth="2" />
+                          <rect x="8" y="8" width="204" height="130" rx="14" fill="#1e293b" stroke="#0f172a" strokeWidth="2" />
+                          
+                          <rect x="65" y="14" width="90" height="5" rx="2.5" fill="#475569" />
+                          <text x="110" y="32" fill="#94a3b8" fontSize="10" fontWeight="900" textAnchor="middle" letterSpacing="1.2">CIRCUIT BREAKER</text>
+
+                          {/* Animated 3D Lever Blade */}
+                          <g 
+                            className="cursor-pointer" 
+                            onClick={(e) => { e.stopPropagation(); setIsSwitchClosed(!isSwitchClosed); }}
+                          >
+                            <line 
+                              x1="45" y1="85" 
+                              x2={isSwitchClosed ? "175" : "150"} 
+                              y2={isSwitchClosed ? "85" : "42"} 
+                              stroke={isSwitchClosed ? "#22c55e" : "#f97316"} 
+                              strokeWidth="10" 
+                              strokeLinecap="round"
+                            />
+                            <rect 
+                              x={isSwitchClosed ? "135" : "120"} 
+                              y={isSwitchClosed ? "75" : "30"} 
+                              width="34" height="20" rx="5" 
+                              fill={isSwitchClosed ? "#16a34a" : "#ea580c"} 
+                              stroke="#ffffff" strokeWidth="1.5"
+                            />
+                          </g>
+
+                          {/* Toggle Button inside Switch Module */}
+                          <foreignObject x="25" y="104" width="170" height="32">
+                            <div xmlns="http://www.w3.org/1999/xhtml">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setIsSwitchClosed(!isSwitchClosed); }}
+                                className={`w-full py-1 rounded-lg font-black text-[10px] uppercase tracking-wider shadow transition ${
+                                  isSwitchClosed 
+                                    ? 'bg-emerald-500 text-slate-950 hover:bg-emerald-400' 
+                                    : 'bg-orange-600 text-white hover:bg-orange-500'
+                                }`}
+                              >
+                                {isSwitchClosed ? '● ON (สวิตช์ปิดวงจร)' : '○ OFF (สวิตช์ตัดไฟ)'}
+                              </button>
+                            </div>
+                          </foreignObject>
                         </g>
-                        
-                        <circle cx="300" cy="320" r="22" fill="url(#metal-grad)" stroke="#475569" strokeWidth="2" filter="drop-shadow(0 4px 6px rgba(0,0,0,0.3))" />
-                        <circle cx="300" cy="320" r="10" fill="#0f172a" />
-                        <circle cx="296" cy="316" r="3" fill="rgba(255,255,255,0.4)" />
+
+                        {/* ========================================================= */}
+                        {/* 3. 3D DRAGGABLE LOAD LAMP & RHEOSTAT MODULE               */}
+                        {/* ========================================================= */}
+                        <g 
+                          transform={`translate(${positions.load.x}, ${positions.load.y})`}
+                          onMouseDown={(e) => startDrag('load', e)}
+                          onTouchStart={(e) => startDrag('load', e)}
+                          className="cursor-grab active:cursor-grabbing hw-accel"
+                        >
+                          <rect x="6" y="18" width="230" height="275" rx="22" fill="rgba(0,0,0,0.45)" />
+                          <rect x="0" y="12" width="230" height="275" rx="22" fill="#0f172a" />
+                          <rect x="0" y="0" width="230" height="272" rx="22" fill="#334155" stroke="#64748b" strokeWidth="2" />
+                          <rect x="8" y="8" width="214" height="256" rx="16" fill="#1e293b" stroke="#0f172a" strokeWidth="2" />
+
+                          <text x="115" y="24" fill="#94a3b8" fontSize="10" fontWeight="900" textAnchor="middle" letterSpacing="1.2">RESISTIVE LAMP LOAD</text>
+                          <text x="155" y="46" fill="#fca5a5" fontSize="10" fontWeight="900">NODE A</text>
+
+                          {/* Realistic 3D Glass Lamp & Filament */}
+                          <g transform="translate(115, 118)">
+                            {circuitSolution.loadPower > 0.01 && (
+                              <circle r={Math.min(110, 42 + Math.sqrt(circuitSolution.loadPower) * 28)} fill="url(#bulb-glow-3d)" />
+                            )}
+                            <rect x="-22" y="24" width="44" height="16" rx="4" fill="url(#gold-grad)" stroke="#475569" />
+                            <circle 
+                              r="36" 
+                              fill={circuitSolution.loadPower > 0.01 ? "rgba(254, 240, 138, 0.28)" : "rgba(15, 23, 42, 0.75)"} 
+                              stroke={circuitSolution.loadPower > 0.01 ? "#fde047" : "#64748b"} 
+                              strokeWidth="2.5" 
+                            />
+                            <path 
+                              d="M -14 22 L -10 -4 L -5 6 L 0 -10 L 5 6 L 10 -4 L 14 22" 
+                              fill="none" 
+                              stroke={circuitSolution.loadPower > 0.01 ? "#ffffff" : "#64748b"} 
+                              strokeWidth={circuitSolution.loadPower > 0.01 ? "3.5" : "2"} 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round" 
+                            />
+                            <path d="M -22 -14 A 24 24 0 0 1 -6 -28" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="3" strokeLinecap="round" />
+                          </g>
+
+                          {/* Embedded Resistance Slider */}
+                          <foreignObject x="18" y="160" width="194" height="60">
+                            <div xmlns="http://www.w3.org/1999/xhtml" className="bg-slate-900/95 p-2 rounded-xl border border-slate-700">
+                              <div className="flex justify-between text-[10px] font-black text-sky-400 mb-1">
+                                <span>LOAD R: {circuitResistance} Ω</span>
+                                <span className="text-amber-300">P: {circuitSolution.loadPower.toFixed(2)}W</span>
+                              </div>
+                              <input
+                                type="range" min="10" max="2000" step="10"
+                                value={circuitResistance}
+                                onChange={(e) => setCircuitResistance(parseFloat(e.target.value))}
+                                className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-slate-800 accent-sky-400"
+                              />
+                            </div>
+                          </foreignObject>
+
+                          <text x="155" y="242" fill="#cbd5e1" fontSize="10" fontWeight="900">NODE B</text>
+                        </g>
+
+                        {/* ========================================================= */}
+                        {/* 4. 3D DRAGGABLE MULTIMETER (EMBEDDED DIRECTLY IN BENCH)   */}
+                        {/* ========================================================= */}
+                        <g 
+                          transform={`translate(${positions.meter.x}, ${positions.meter.y})`}
+                          onMouseDown={(e) => startDrag('meter', e)}
+                          onTouchStart={(e) => startDrag('meter', e)}
+                          className="cursor-grab active:cursor-grabbing hw-accel"
+                        >
+                          <rect x="8" y="20" width="410" height="525" rx="34" fill="rgba(0,0,0,0.5)" />
+                          <rect x="0" y="14" width="410" height="525" rx="34" fill="#090d16" />
+                          <rect x="0" y="0" width="410" height="520" rx="34" fill="#cbd5e1" stroke="#f8fafc" strokeWidth="2" />
+                          <rect x="10" y="10" width="390" height="500" rx="26" fill="#1e293b" stroke="#0f172a" strokeWidth="3" />
+
+                          <rect x="145" y="18" width="120" height="6" rx="3" fill="#475569" />
+                          
+                          {/* Mode Tabs Embedded on 3D Meter Top */}
+                          <foreignObject x="22" y="30" width="366" height="44">
+                            <div xmlns="http://www.w3.org/1999/xhtml" className="flex bg-slate-900 p-1 rounded-xl border border-slate-700 gap-1">
+                              {['ammeter', 'voltmeter', 'ohmmeter'].map((id) => (
+                                <button
+                                  key={id}
+                                  onClick={(e) => { e.stopPropagation(); setInstrumentType(id); setSelectedRangeIndex(1); }}
+                                  className={`flex-1 py-1.5 rounded-lg font-black text-[11px] uppercase tracking-wider transition-all ${
+                                    instrumentType === id
+                                      ? (id === 'ammeter' ? 'bg-blue-600 text-white shadow' : id === 'voltmeter' ? 'bg-orange-500 text-white shadow' : 'bg-green-600 text-white shadow')
+                                      : 'text-slate-400 hover:text-white'
+                                  }`}
+                                >
+                                  {id}
+                                </button>
+                              ))}
+                            </div>
+                          </foreignObject>
+
+                          {/* Embedded Analog Scale Dial SVG */}
+                          <g transform="translate(22, 80)">
+                            <rect width="366" height="230" rx="18" fill="#f8fafc" stroke="#334155" strokeWidth="4" />
+                            <svg viewBox="0 0 600 400" width="366" height="230">
+                              <ScaleDialTicks instrumentType={instrumentType} currentRange={currentRange} />
+                              <g transform="translate(300, 260)" textAnchor="middle">
+                                <text y="-20" fontSize="16" fill="#64748b" fontWeight="bold">CLASS 1.5 PRO</text>
+                                <text y="12" fontSize="46" fontWeight="900" fontFamily="serif" fill={
+                                  themeColor === 'blue' ? '#1d4ed8' : themeColor === 'orange' ? '#c2410c' : '#15803d'
+                                }>
+                                  {instrumentType === 'ammeter' ? 'A' : instrumentType === 'voltmeter' ? 'V' : 'Ω'}
+                                </text>
+                              </g>
+                              {/* 60FPS Direct DOM Animated Needle Group */}
+                              <g ref={needleGroupRef} transform="rotate(-50, 300, 320)">
+                                <polygon points="296,330 304,330 301,45 299,45" fill="rgba(0,0,0,0.2)" transform="translate(6, 10)" />
+                                <path d="M 292 320 L 308 320 L 304 350 L 296 350 Z" fill="#1e293b" />
+                                <polygon points="295,320 305,320 301,45 299,45" fill={isOverload ? "#ef4444" : "#e11d48"} />
+                              </g>
+                              <circle cx="300" cy="320" r="22" fill="url(#metal-grad-3d)" stroke="#334155" strokeWidth="2" />
+                              <circle cx="300" cy="320" r="10" fill="#0f172a" />
+                            </svg>
+                          </g>
+
+                          {/* Embedded Range Selector + Digital OLED Readout */}
+                          <foreignObject x="22" y="320" width="366" height="125">
+                            <div xmlns="http://www.w3.org/1999/xhtml" className="flex flex-col gap-2">
+                              <div className="flex gap-2 items-stretch">
+                                <div className="flex-[1.3] bg-slate-900/95 p-2 rounded-xl border border-slate-700 flex flex-col justify-center">
+                                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest text-center mb-1">RANGE SELECTOR</span>
+                                  <div className="flex gap-1 h-8">
+                                    {ranges.map((r, idx) => (
+                                      <button
+                                        key={idx}
+                                        onClick={(e) => { e.stopPropagation(); setSelectedRangeIndex(idx); }}
+                                        className={`flex-1 rounded-lg font-black text-[9px] border transition ${
+                                          selectedRangeIndex === idx
+                                            ? 'bg-slate-950 text-white border-sky-400 shadow-inner'
+                                            : 'bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600'
+                                        }`}
+                                      >
+                                        {r.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                <div className="flex-1 bg-black rounded-xl p-2 border-2 border-slate-700 flex flex-col items-center justify-center">
+                                  <span className="text-[8px] font-bold text-slate-500 uppercase">DIGITAL OUT</span>
+                                  <span 
+                                    className="font-mono text-xl font-black leading-tight"
+                                    style={{ color: isOverload ? '#ef4444' : (themeColor === 'blue' ? '#60a5fa' : themeColor === 'orange' ? '#fb923c' : '#4ade80') }}
+                                  >
+                                    {formatDigitalReadout()} <span className="text-xs text-slate-400">{instrumentType === 'ohmmeter' ? 'Ω' : currentRange.unit}</span>
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="bg-slate-950/95 px-3 py-1.5 rounded-lg border border-slate-800 flex items-center justify-between text-[10px]">
+                                <span className={`font-bold ${isOverload ? 'text-red-400' : (circuitSolution.isMeterValid || (instrumentType === 'ohmmeter' && isFinite(activeMeasuredValue))) ? 'text-emerald-400' : 'text-amber-300'}`}>
+                                  {circuitSolution.isOhmmeterLiveError 
+                                    ? '⚠️ ห้ามวัดความต้านทานขณะมีไฟ!' 
+                                    : circuitSolution.isShortCircuit
+                                    ? '⚠️ ลัดวงจร! ต่อแอมมิเตอร์คร่อมแหล่งจ่ายโดยตรง'
+                                    : circuitSolution.isReversePolarity
+                                    ? '⚠️ ต่อสลับขั้ว (+/-)! กรุณาสลับสายวัด'
+                                    : isOverload 
+                                    ? '⚠️ ค่าเกินย่านวัด (Overload)' 
+                                    : (!circuitSolution.isMeterValid && !(instrumentType === 'ohmmeter' && isFinite(activeMeasuredValue)))
+                                    ? '○ ยังไม่ครบวงจร / ไม่มีไฟเข้ามิเตอร์'
+                                    : '● ต่อวงจรและขั้วถูกต้อง อ่านค่าได้'}
+                                </span>
+                                <span className="text-slate-500 font-mono">MANUAL PROBE</span>
+                              </div>
+                            </div>
+                          </foreignObject>
+
+                          <text x="125" y="470" fill="#f87171" fontSize="10" fontWeight="900" textAnchor="middle">V / Ω / A (+)</text>
+                          <text x="285" y="470" fill="#94a3b8" fontSize="10" fontWeight="900" textAnchor="middle">COM (-)</text>
+                        </g>
+
+                        {/* ========================================================= */}
+                        {/* 5. INTERACTIVE TERMINALS (CLICK OR DRAG TO WIRE)          */}
+                        {/* ========================================================= */}
+                        {Object.entries(terminals).map(([id, pt]) => {
+                          const isSelected = selectedTerminal === id;
+                          const isHovered = hoveredTerminal === id;
+                          const meta = TERMINAL_META[id];
+                          return (
+                            <g 
+                              key={id} 
+                              transform={`translate(${pt.x}, ${pt.y})`}
+                              onMouseDown={(e) => handleTerminalDown(id, e)}
+                              onTouchStart={(e) => handleTerminalDown(id, e)}
+                              onMouseEnter={() => setHoveredTerminal(id)}
+                              onMouseLeave={() => setHoveredTerminal(null)}
+                              className="cursor-pointer"
+                            >
+                              {/* Outer glowing selection/hover ring */}
+                              {(isSelected || isHovered) && (
+                                <circle 
+                                  r="23" 
+                                  fill="none" 
+                                  stroke={isSelected ? "#fde047" : "#38bdf8"} 
+                                  strokeWidth="3" 
+                                  strokeDasharray={isSelected ? "4 2" : "none"}
+                                />
+                              )}
+                              {/* 3D Terminal Socket Base */}
+                              <circle r="16" fill="#0f172a" stroke={meta.color} strokeWidth="3.5" />
+                              <circle r="10" fill="url(#metal-grad-3d)" />
+                              <circle r="4.5" fill="#0f172a" />
+                            </g>
+                          );
+                        })}
+
+                        {/* ========================================================= */}
+                        {/* 6. USER-CONNECTED 3D FLEXIBLE CABLES & DRAFT WIRE         */}
+                        {/* ========================================================= */}
+                        {}
+                        <g>
+                          {wires.map((w) => {
+                            const p1 = terminals[w.from];
+                            const p2 = terminals[w.to];
+                            if (!p1 || !p2) return null;
+                            const d = createCablePath(p1, p2, 55);
+                            return (
+                              <g 
+                                key={w.id} 
+                                className="cursor-pointer group"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setWires((prev) => prev.filter((item) => item.id !== w.id));
+                                }}
+                              >
+                                {/* Invisible wide hit area for easy clicking to delete wire */}
+                                <path d={d} fill="none" stroke="transparent" strokeWidth="22" strokeLinecap="round" />
+
+                                {/* Glowing Electrical Aura when Circuit is Active */}
+                                {circuitSolution.activeWires && (
+                                  <>
+                                    <path 
+                                      d={d} 
+                                      fill="none" 
+                                      stroke={w.color} 
+                                      strokeWidth="22" 
+                                      strokeLinecap="round"
+                                      className="wire-aura pointer-events-none"
+                                    />
+                                    <path 
+                                      d={d} 
+                                      fill="none" 
+                                      stroke="#fef08a" 
+                                      strokeWidth="12" 
+                                      strokeLinecap="round"
+                                      strokeOpacity="0.45"
+                                      className="wire-aura pointer-events-none"
+                                    />
+                                  </>
+                                )}
+
+                                {/* Cable Drop Shadow */}
+                                <path d={d} fill="none" stroke="rgba(0,0,0,0.45)" strokeWidth="10" strokeLinecap="round" transform="translate(0, 6)" />
+                                {/* Outer Cable Insulation */}
+                                <path d={d} fill="none" stroke="#0f172a" strokeWidth="9" strokeLinecap="round" className="group-hover:stroke-rose-500 transition-colors" />
+                                {/* Inner Colored Core */}
+                                <path d={d} fill="none" stroke={w.color} strokeWidth="5.5" strokeLinecap="round" className="group-hover:stroke-rose-400 transition-colors" />
+                                
+                                {/* Subtle Bright Core Highlight when Active */}
+                                {circuitSolution.activeWires && (
+                                  <path 
+                                    d={d} 
+                                    fill="none" 
+                                    stroke="#fef9c3" 
+                                    strokeWidth="2" 
+                                    strokeLinecap="round"
+                                    strokeOpacity="0.85"
+                                    className="pointer-events-none" 
+                                  />
+                                )}
+
+                                {/* 3D Banana Plug Caps at Ends */}
+                                <circle cx={p1.x} cy={p1.y} r="7.5" fill={w.color} stroke="#ffffff" strokeWidth="1.5" />
+                                <circle cx={p2.x} cy={p2.y} r="7.5" fill={w.color} stroke="#ffffff" strokeWidth="1.5" />
+                              </g>
+                            );
+                          })}
+
+                          {/* Live Wire Draft While Dragging from a Terminal */}
+                          {wireDraft && terminals[wireDraft.from] && (
+                            <g className="pointer-events-none">
+                              <path 
+                                d={createCablePath(terminals[wireDraft.from], { x: wireDraft.x, y: wireDraft.y }, 35)} 
+                                fill="none" 
+                                stroke={wireColor} 
+                                strokeWidth="6" 
+                                strokeDasharray="8 6" 
+                                strokeLinecap="round" 
+                              />
+                              <circle cx={wireDraft.x} cy={wireDraft.y} r="8" fill={wireColor} stroke="#ffffff" strokeWidth="2" />
+                            </g>
+                          )}
+                        </g>
                       </svg>
 
-                      <div className="absolute inset-0 pointer-events-none rounded-2xl" style={{
-                          background: 'linear-gradient(110deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.05) 30%, rgba(255,255,255,0) 60%)',
-                          boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.8), inset 0 -1px 2px rgba(0,0,0,0.3)'
-                      }}></div>
-                    </div>
-
-                    {}
-                    <div className="w-full flex flex-row gap-3">
-                      <div className="flex-[1.2] bg-slate-800/50 rounded-xl p-2.5 border border-slate-700/50 flex flex-col shadow-inner justify-center">
-                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 text-center">Range Selector</p>
-                         <div className="flex gap-1.5 h-9">
-                            {ranges.map((range, idx) => (
-                              <button
-                                 key={idx}
-                                 onClick={() => setSelectedRangeIndex(idx)}
-                                 className={`relative flex-1 flex flex-col items-center justify-center rounded-lg transition-all duration-300 border ${
-                                   selectedRangeIndex === idx 
-                                   ? `bg-slate-900 shadow-[inset_0_2px_8px_rgba(0,0,0,0.8)] translate-y-0.5 ${themeColor === 'blue' ? 'border-blue-500/50' : themeColor === 'orange' ? 'border-orange-500/50' : 'border-green-500/50'}`
-                                   : 'bg-gradient-to-b from-slate-600 to-slate-700 border-slate-500 shadow-[0_3px_5px_rgba(0,0,0,0.3),_0_2px_0_#334155] -translate-y-0.5 hover:-translate-y-0'
-                                 }`}
-                              >
-                                <div className={`w-2.5 h-1 mb-0.5 rounded-full ${
-                                  selectedRangeIndex === idx 
-                                    ? (themeColor === 'blue' ? 'bg-blue-400 shadow-[0_0_8px_#60a5fa]' : themeColor === 'orange' ? 'bg-orange-400 shadow-[0_0_8px_#fb923c]' : 'bg-green-400 shadow-[0_0_8px_#4ade80]') 
-                                    : 'bg-slate-800 shadow-inner'
-                                }`}></div>
-                                 <span className={`text-[9px] font-black ${selectedRangeIndex === idx ? 'text-white' : 'text-slate-300'}`}>{range.label}</span>
-                              </button>
-                            ))}
-                         </div>
-                      </div>
-
-                      <div className="flex-1 bg-[#0a0a0a] rounded-xl p-2.5 border-2 border-slate-700 shadow-[inset_0_4px_20px_rgba(0,0,0,0.8)] flex flex-col justify-center items-center relative overflow-hidden">
-                        <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none"></div>
-                        <span className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Digital Readout</span>
-                        <span className="font-mono text-xl sm:text-2xl font-black tracking-wider flex items-baseline gap-1 mt-0.5" 
-                              style={{ 
-                                color: themeColor === 'blue' ? '#60a5fa' : themeColor === 'orange' ? '#fb923c' : '#4ade80',
-                                textShadow: `0 0 10px ${themeColor === 'blue' ? '#3b82f688' : themeColor === 'orange' ? '#ea580c88' : '#16a34a88'}`
-                              }}>
-                          {instrumentType === 'ohmmeter' ? (manualValue > currentRange.mid * 15 ? 'O.L' : manualValue.toFixed(1)) : manualValue.toFixed(manualValue < 1 ? 3 : 1)}
-                          <span className="text-xs sm:text-sm text-slate-400 font-bold">{instrumentType === 'ohmmeter' ? 'Ω' : currentRange.unit}</span>
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="w-full bg-slate-900/80 p-3 rounded-xl shadow-[inset_0_2px_15px_rgba(0,0,0,0.8)] border border-slate-700/50">
-                       <div className="flex justify-start items-center mb-1.5">
-                         <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                           <Settings2 className="w-3.5 h-3.5 text-slate-500" /> Direct Signal Input
-                         </span>
-                       </div>
-                       <input 
-                         type="range" 
-                         min="0" 
-                         max={instrumentType === 'ohmmeter' ? currentRange.mid * 20 : currentRange.max * 1.1} 
-                         step={instrumentType === 'ohmmeter' ? (currentRange.mid / 10) : (currentRange.step || 1)}
-                         value={manualValue}
-                         onChange={(e) => setManualValue(parseFloat(e.target.value))}
-                         className="w-full h-2.5 rounded-full appearance-none cursor-pointer bg-slate-800 shadow-[inset_0_1px_4px_rgba(0,0,0,1)] outline-none"
-                         style={{ accentColor: themeColor === 'blue' ? '#3b82f6' : themeColor === 'orange' ? '#f97316' : '#22c55e' }}
-                       />
+                      {/* Floating Safety Interlock Alert when Ohmmeter is used on a Live Circuit */}
+                      {circuitSolution.isOhmmeterLiveError && (
+                        <div className="absolute bottom-4 left-4 right-4 md:left-auto md:right-6 md:w-[460px] z-30 bg-red-950/95 border-2 border-red-500 text-red-100 p-3.5 rounded-2xl flex items-center justify-between gap-3 shadow-2xl">
+                          <div className="flex items-center gap-2.5">
+                            <AlertTriangle className="w-6 h-6 text-red-400 shrink-0" />
+                            <div className="text-xs leading-snug">
+                              <p className="font-black text-red-300">ห้ามวัดความต้านทานขณะมีกระแสไฟในวงจร!</p>
+                              <p className="text-red-200/80 text-[11px]">สับสวิตช์ Circuit Breaker เป็น OFF หรือถอดสายไฟแหล่งจ่ายออกก่อน</p>
+                            </div>
+                          </div>
+                          <button 
+                            onClick={() => setIsSwitchClosed(false)}
+                            className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white font-black text-xs rounded-xl shrink-0 shadow-lg"
+                          >
+                            ตัดสวิตช์ทันที
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
+              ) : (
+                /* MANUAL SCALE READING PRACTICE MODE */
+                <div className="w-full max-w-xl mx-auto flex flex-col items-center gap-2">
+                  <div className="mb-1 flex bg-slate-200/70 p-1 rounded-xl shadow-inner border border-white/60 w-full">
+                    {['ammeter', 'voltmeter', 'ohmmeter'].map((id) => (
+                      <button key={id} onClick={() => {setInstrumentType(id); setSelectedRangeIndex(1);}}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg font-bold transition-all duration-300 text-xs capitalize ${
+                          instrumentType === id 
+                            ? (id === 'ammeter' ? 'bg-gradient-to-b from-blue-500 to-blue-700' : id === 'voltmeter' ? 'bg-gradient-to-b from-orange-400 to-orange-600' : 'bg-gradient-to-b from-green-500 to-green-700') + ' text-white shadow-md scale-[1.02] border border-white/20' 
+                            : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
+                        }`}
+                      >
+                        {id === 'ammeter' ? <Activity className="w-3.5 h-3.5" /> : id === 'voltmeter' ? <Gauge className="w-3.5 h-3.5" /> : <Box className="w-3.5 h-3.5" />} {id}
+                      </button>
+                    ))}
+                  </div>
 
-              </div>
+                  <div className="relative rounded-[2.5rem] p-3 bg-gradient-to-b from-slate-300 to-slate-400 shadow-2xl border border-slate-300 w-full flex flex-col">
+                    <div className="relative flex-1 bg-gradient-to-br from-slate-800 to-slate-900 rounded-[2rem] p-4 shadow-inner flex flex-col gap-3">
+                      <div className="relative w-full h-56 sm:h-64 bg-gradient-to-b from-[#ffffff] to-[#f0f4f8] rounded-2xl overflow-hidden border-2 border-slate-700">
+                        <svg viewBox="0 0 600 400" className="w-full h-full p-2">
+                          <ScaleDialTicks instrumentType={instrumentType} currentRange={currentRange} />
+                          <g transform="translate(300, 260)" textAnchor="middle">
+                            <text y="-20" fontSize="16" fill="#64748b" className="font-bold tracking-widest uppercase font-sans">Class 1.5</text>
+                            <text y="10" fontSize="42" className="font-black font-serif" fill={
+                              themeColor === 'blue' ? '#1d4ed8' : themeColor === 'orange' ? '#c2410c' : '#15803d'
+                            }>{instrumentType === 'ammeter' ? 'A' : instrumentType === 'voltmeter' ? 'V' : 'Ω'}</text>
+                            <text y="35" fontSize="12" fill="#94a3b8" className="font-bold tracking-[0.3em] uppercase font-sans">Precision Instrument</text>
+                          </g>
+                          <g ref={needleGroupRef} transform="rotate(-50, 300, 320)">
+                            <polygon points="296,330 304,330 301,45 299,45" fill="rgba(0,0,0,0.22)" transform="translate(6, 12)" />
+                            <path d="M 292 320 L 308 320 L 304 350 L 296 350 Z" fill="#1e293b" />
+                            <polygon points="295,320 305,320 301,45 299,45" fill={isOverload ? "#ef4444" : "#f03e3e"} />
+                          </g>
+                          <circle cx="300" cy="320" r="22" fill="#cbd5e1" stroke="#475569" strokeWidth="2" />
+                          <circle cx="300" cy="320" r="10" fill="#0f172a" />
+                        </svg>
+                      </div>
+
+                      <div className="w-full flex flex-row gap-3">
+                        <div className="flex-[1.2] bg-slate-800/50 rounded-xl p-2.5 border border-slate-700/50 flex flex-col shadow-inner justify-center">
+                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 text-center">Range Selector</p>
+                           <div className="flex gap-1.5 h-9">
+                              {ranges.map((range, idx) => (
+                                <button
+                                   key={idx}
+                                   onClick={() => setSelectedRangeIndex(idx)}
+                                   className={`relative flex-1 flex flex-col items-center justify-center rounded-lg transition-all duration-300 border ${
+                                     selectedRangeIndex === idx 
+                                     ? 'bg-slate-900 border-sky-500/50 text-white'
+                                     : 'bg-gradient-to-b from-slate-600 to-slate-700 border-slate-500 text-slate-300'
+                                   }`}
+                                >
+                                   <span className="text-[9px] font-black">{range.label}</span>
+                                </button>
+                              ))}
+                           </div>
+                        </div>
+
+                        <div className="flex-1 bg-[#0a0a0a] rounded-xl p-2.5 border-2 border-slate-700 flex flex-col justify-center items-center">
+                          <span className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Digital Readout</span>
+                          <span className="font-mono text-xl sm:text-2xl font-black tracking-wider flex items-baseline gap-1 mt-0.5" 
+                                style={{ color: isOverload ? '#ef4444' : (themeColor === 'blue' ? '#60a5fa' : themeColor === 'orange' ? '#fb923c' : '#4ade80') }}>
+                            {formatDigitalReadout()}
+                            <span className="text-xs sm:text-sm text-slate-400 font-bold">{instrumentType === 'ohmmeter' ? 'Ω' : currentRange.unit}</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="w-full bg-slate-900/80 p-3 rounded-xl border border-slate-700/50">
+                         <div className="flex justify-between items-center mb-1.5">
+                           <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                             <Settings2 className="w-3.5 h-3.5 text-slate-500" /> Direct Signal Input (ปรับค่าเพื่อฝึกอ่านสเกล)
+                           </span>
+                         </div>
+                         <input 
+                           type="range" 
+                           min="0" 
+                           max={instrumentType === 'ohmmeter' ? currentRange.mid * 20 : currentRange.max * 1.1} 
+                           step={instrumentType === 'ohmmeter' ? (currentRange.mid / 10) : (currentRange.step || 1)}
+                           value={manualValue}
+                           onChange={(e) => setManualValue(parseFloat(e.target.value))}
+                           className="w-full h-2.5 rounded-full appearance-none cursor-pointer bg-slate-800 outline-none"
+                           style={{ accentColor: themeColor === 'blue' ? '#3b82f6' : themeColor === 'orange' ? '#f97316' : '#22c55e' }}
+                         />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           );
         };
@@ -332,5 +1316,3 @@
     </script>
 </body>
 </html>
-```
-eof
